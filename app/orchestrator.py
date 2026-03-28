@@ -325,6 +325,12 @@ def _try_start_intake(
                 selected_slot = slots[idx]
             break
 
+    # Bare digit 1-8 as list position (only when entire message is that digit)
+    if not selected_slot and re.fullmatch(r"[1-8]", message.strip()):
+        idx = int(message.strip()) - 1
+        if idx < len(slots):
+            selected_slot = slots[idx]
+
     # Time match: "9am", "9:00 AM", "9:00", or bare "9" / "10" / "11"
     if not selected_slot:
         # Full time with am/pm: "9am", "9:00 AM", "9:30pm"
@@ -350,6 +356,9 @@ def _try_start_intake(
         if bare_m:
             hour = int(bare_m.group(1))
             minute = int(bare_m.group(2)) if bare_m.group(2) else 0
+            # Treat hours >= 12 as PM (12=noon, 13=1PM etc.)
+            if hour > 12:
+                hour = hour - 12
             for slot in slots:
                 raw_time = str(slot.get("start_time", ""))
                 try:
@@ -480,6 +489,14 @@ def handle_chat(message: str, session_id: str = "default") -> Dict[str, Any]:
                 set_reschedule_options(session_id, slots)
             except Exception as exc:
                 log.warning("set_reschedule_options error: %s", exc)
+            # Also save to last_presented_slots so _find_slot_from_last_reschedule_options
+            # and the time-matching logic both have access to the same slot list
+            try:
+                save_presented_slots(session_id, slots)
+            except Exception as exc:
+                log.warning("save_presented_slots (reschedule) error: %s", exc)
+            # Store awaiting flag so the next message routes here for slot matching
+            state["awaiting_reschedule_slot"] = True
             from app.scheduling import format_slots_for_response
             return _response(
                 "Here are the available times on {}:\n\n{}\n\nWhich time would you like?".format(
@@ -496,7 +513,20 @@ def handle_chat(message: str, session_id: str = "default") -> Dict[str, Any]:
         )
         return result
 
-    # 4. Time selection follow-up
+    # 4a. Reschedule slot selection — user picking a time from presented reschedule slots
+    if state.get("awaiting_reschedule_slot"):
+        result = _safe_call(
+            "Please choose one of the new time options I shared.",
+            session_id,
+            lambda: finalize_reschedule_from_message(session_id, message),
+            lambda: finalize_reschedule_from_message(session_id=session_id, message=message),
+        )
+        # If finalize succeeded, clear the awaiting flag
+        if result.get("response", "").startswith(("Your appointment", "Done,")):
+            state.pop("awaiting_reschedule_slot", None)
+        return result
+
+    # 4b. Booking time selection follow-up
     intake = _try_start_intake(message, msg, session_id)
     if intake:
         return intake

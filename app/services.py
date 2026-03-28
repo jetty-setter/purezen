@@ -40,7 +40,7 @@ def list_services(active_only: bool = True) -> List[Dict[str, Any]]:
     items = [_convert_decimal(item) for item in items]
 
     if active_only:
-        items = [item for item in items if item.get("active", True)]
+        items = [item for item in items if item.get("active", True) is not False]
 
     items.sort(key=lambda x: x.get("name", ""))
     return items

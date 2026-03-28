@@ -229,6 +229,17 @@ def detect_intent(message: str) -> Dict[str, Any]:
         parsed = _extract_json_object(raw)
 
         if "intent" in parsed:
+            # Override LLM if message clearly asks what services exist
+            msg_lower = message.lower()
+            service_question_signals = [
+                "what services", "what massages", "what facials", "what treatments",
+                "what do you have", "what do you offer", "what products",
+                "services do you have", "massages do you have", "facials do you have",
+                "what can i get", "tell me about your", "show me your services",
+            ]
+            if any(s in msg_lower for s in service_question_signals):
+                parsed["intent"] = "service_question"
+
             result = {
                 "intent":         parsed.get("intent", "unknown"),
                 "service_name":   parsed.get("service_name"),

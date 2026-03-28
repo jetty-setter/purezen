@@ -143,8 +143,8 @@ def _filter_by_time_of_day(
 
 def _pick_representative_slots(slots: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    Keep one slot per unique start_time, rotating staff when multiple staff
-    are available at the same time to give the user clean, varied options.
+    Keep one slot per unique start_time, rotating staff evenly across all
+    available staff so the user sees variety throughout the day.
     """
     if not slots:
         return []
@@ -160,21 +160,28 @@ def _pick_representative_slots(slots: List[Dict[str, Any]]) -> List[Dict[str, An
         key=lambda t: _slot_sort_key({"date": slots[0].get("date"), "start_time": t}),
     )
 
+    # Build a pool of all unique staff in sorted order for even rotation
+    all_staff = sorted({
+        s.get("staff_id") for s in slots if s.get("staff_id")
+    })
+    staff_index = 0
     chosen: List[Dict[str, Any]] = []
-    last_staff_id = None
 
     for start_time in ordered_times:
-        options = sorted(
-            grouped[start_time],
-            key=lambda s: (str(s.get("staff_name") or ""), str(s.get("staff_id") or "")),
-        )
+        options = grouped[start_time]
+        available_staff = {s.get("staff_id") for s in options}
 
-        selected = next(
-            (opt for opt in options if opt.get("staff_id") != last_staff_id),
-            options[0],
-        )
-        chosen.append(selected)
-        last_staff_id = selected.get("staff_id")
+        # Find the next staff member in rotation who is available at this time
+        for _ in range(len(all_staff)):
+            candidate_id = all_staff[staff_index % len(all_staff)]
+            staff_index += 1
+            if candidate_id in available_staff:
+                selected = next(s for s in options if s.get("staff_id") == candidate_id)
+                chosen.append(selected)
+                break
+        else:
+            # Fallback: just take the first available
+            chosen.append(options[0])
 
     return chosen
 

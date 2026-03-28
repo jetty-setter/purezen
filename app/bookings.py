@@ -93,6 +93,12 @@ def _extract_ordinal_index(message: str) -> Optional[int]:
     for key, index in ordinal_map.items():
         if re.search(rf"\b{re.escape(key)}\b", normalized):
             return index
+
+    # Also match bare digits 1-8 as list position when the whole message is just a number
+    bare = (message or "").strip()
+    if re.fullmatch(r"[1-8]", bare):
+        return int(bare) - 1  # "1" -> index 0, "2" -> index 1 etc.
+
     return None
 
 
@@ -196,11 +202,15 @@ def _find_slot_from_last_presented(session_id: str, message: str) -> Optional[Di
     if not slots:
         return None
 
-    # Normalise compact time inputs: "930" -> "9:30 AM", "1030" -> "10:30 AM"
+    # Normalise compact time inputs: "930"->9:30 AM, "1230"->12:30 PM, "1400"->2:00 PM
     msg = message.strip()
     compact = re.fullmatch(r"(\d{1,2})(\d{2})", msg)
     if compact:
-        msg = "{}:{} AM".format(compact.group(1), compact.group(2))
+        h, m = int(compact.group(1)), compact.group(2)
+        suffix = "PM" if h >= 12 else "AM"
+        dh = h if h <= 12 else h - 12
+        if dh == 0: dh = 12
+        msg = "{}:{} {}".format(dh, m, suffix)
 
     requested_date = _extract_date(msg)
     requested_time = _extract_time(msg)
@@ -239,11 +249,15 @@ def _find_slot_from_last_reschedule_options(session_id: str, message: str) -> Op
     if not slots:
         return None
 
-    # Normalise compact time inputs: "930" -> "9:30 AM", "1030" -> "10:30 AM"
+    # Normalise compact time inputs: "930"->9:30 AM, "1230"->12:30 PM, "1400"->2:00 PM
     msg = message.strip()
     compact = re.fullmatch(r"(\d{1,2})(\d{2})", msg)
     if compact:
-        msg = "{}:{} AM".format(compact.group(1), compact.group(2))
+        h, m = int(compact.group(1)), compact.group(2)
+        suffix = "PM" if h >= 12 else "AM"
+        dh = h if h <= 12 else h - 12
+        if dh == 0: dh = 12
+        msg = "{}:{} {}".format(dh, m, suffix)
 
     requested_date = _extract_date(msg)
     requested_time = _extract_time(msg)
@@ -703,6 +717,7 @@ def reschedule_booking(booking_id: str, new_slot_id: str) -> Dict[str, Any]:
             ExpressionAttributeValues={
                 ":available": "AVAILABLE",
                 ":booked": "BOOKED",
+                ":booking_id": booking_id,
             },
             ConditionExpression="booking_id = :booking_id AND #status = :booked",
         )
