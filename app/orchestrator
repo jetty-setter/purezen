@@ -1,0 +1,278 @@
+from __future__ import annotations
+
+import re
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from app.dynamodb_client import get_availability_table
+
+
+SESSION_STATE: Dict[str, Dict[str, Any]] = {}
+
+
+def _normalize_text(value: str) -> str:
+    return " ".join((value or "").strip().lower().split())
+
+
+def _normalize_time(value: str) -> str:
+    text = _normalize_text(value).upper()
+    text = text.replace(".", "")
+    text = re.sub(r"\s+", " ", text)
+
+    try:
+        parsed = datetime.strptime(text, "%I:%M %p")
+        return parsed.strftime("%-I:%M %p")
+    except Exception:
+        return value.strip()
+
+
+def _extract_time(message: str) -> Optional[str]:
+    match = re.search(r"\b(\d{1,2}:\d{2}\s?(AM|PM|am|pm))\b", message)
+    if not match:
+        return None
+
+    raw = match.group(1)
+    return _normalize_time(raw)
+
+
+def _extract_date(message: str) -> Optional[str]:
+    match = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", message)
+    if match:
+        return match.group(1)
+    return None
+
+
+def _extract_ordinal_index(message: str) -> Optional[int]:
+    normalized = _normalize_text(message)
+
+    ordinal_map = {
+        "first": 0,
+        "1st": 0,
+        "one": 0,
+        "second": 1,
+        "2nd": 1,
+        "two": 1,
+        "third": 2,
+        "3rd": 2,
+        "three": 2,
+        "fourth": 3,
+        "4th": 3,
+        "four": 3,
+        "fifth": 4,
+        "5th": 4,
+        "five": 4,
+    }
+
+    for key, index in ordinal_map.items():
+        if re.search(rf"\b{re.escape(key)}\b", normalized):
+            return index
+
+    return None
+
+
+def _extract_name(message: str) -> Optional[str]:
+    normalized = _normalize_text(message)
+
+    patterns = [
+        r"\bmy name is ([a-zA-Z][a-zA-Z\s'-]{1,40})",
+        r"\bi am ([a-zA-Z][a-zA-Z\s'-]{1,40})",
+        r"\bi'm ([a-zA-Z][a-zA-Z\s'-]{1,40})",
+        r"\bfor ([a-zA-Z][a-zA-Z\s'-]{1,40})$",
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, normalized, re.IGNORECASE)
+        if match:
+            name = match.group(1).strip()
+            return " ".join(part.capitalize() for part in name.split())
+
+    return None
+
+
+def save_presented_slots(
+    session_id: str,
+    service_name: str,
+    slots: List[Dict[str, Any]],
+) -> None:
+    state = SESSION_STATE.setdefault(session_id, {})
+    state["last_service_name"] = service_name
+    state["last_presented_slots"] = slots
+
+
+def get_session_state(session_id: str) -> Dict[str, Any]:
+    return SESSION_STATE.setdefault(session_id, {})
+
+
+def _find_slot_from_last_presented(
+    session_id: str,
+    message: str,
+) -> Optional[Dict[str, Any]]:
+    state = get_session_state(session_id)
+    slots = state.get("last_presented_slots", [])
+
+    if not slots:
+        return None
+
+    requested_date = _extract_date(message)
+    requested_time = _extract_time(message)
+    ordinal_index = _extract_ordinal_index(message)
+    normalized = _normalize_text(message)
+
+    if ordinal_index is not None and 0 <= ordinal_index < len(slots):
+        return slots[ordinal_index]
+
+    if "that one" in normalized or "that time" in normalized or "that slot" in normalized:
+        if len(slots) == 1:
+            return slots[0]
+
+    if requested_date and requested_time:
+        for slot in slots:
+            if str(slot.get("date")) == requested_date and _normalize_time(str(slot.get("start_time"))) == requested_time:
+                return slot
+
+    if requested_time:
+        matching = [
+            slot for slot in slots
+            if _normalize_time(str(slot.get("start_time"))) == requested_time
+        ]
+        if len(matching) == 1:
+            return matching[0]
+
+    return None
+
+
+def booking_intent_detected(message: str) -> bool:
+    normalized = _normalize_text(message)
+
+    booking_phrases = [
+        "book",
+        "reserve",
+        "take",
+        "i want that one",
+        "i want the",
+        "i'll take",
+        "schedule that",
+        "confirm that",
+    ]
+
+    return any(phrase in normalized for phrase in booking_phrases)
+
+
+def create_booking_from_message(session_id: str, message: str) -> Dict[str, Any]:
+    slot = _find_slot_from_last_presented(session_id, message)
+
+    if not slot:
+        return {
+            "success": False,
+            "needs_clarification": True,
+            "message": (
+                "Please tell me which time you’d like to book. "
+                "For example, you can say 'Book 11:00 AM' or 'Book the first one.'"
+            ),
+        }
+
+    booking_name = _extract_name(message)
+    booking_result = book_slot(
+        slot_id=str(slot["slot_id"]),
+        customer_name=booking_name,
+    )
+
+    if booking_result["success"]:
+        state = get_session_state(session_id)
+        state["last_booked_slot"] = booking_result["slot"]
+        state["customer_name"] = booking_name or state.get("customer_name")
+
+    return booking_result
+
+
+def book_slot(slot_id: str, customer_name: Optional[str] = None) -> Dict[str, Any]:
+    table = get_availability_table()
+
+    response = table.get_item(Key={"slot_id": slot_id})
+    slot = response.get("Item")
+
+    if not slot:
+        return {
+            "success": False,
+            "message": "I couldn't find that appointment slot.",
+        }
+
+    current_status = str(slot.get("status", "")).upper()
+    if current_status != "AVAILABLE":
+        return {
+            "success": False,
+            "message": "That time is no longer available. Please choose another option.",
+        }
+
+    booking_id = f"bk_{uuid.uuid4().hex[:12]}"
+
+    update_expression = (
+        "SET #status = :booked, "
+        "booking_id = :booking_id, "
+        "booked_at = :booked_at"
+    )
+
+    expression_names = {
+        "#status": "status",
+    }
+
+    expression_values = {
+        ":booked": "BOOKED",
+        ":booking_id": booking_id,
+        ":booked_at": datetime.utcnow().isoformat(),
+        ":available": "AVAILABLE",
+    }
+
+    if customer_name:
+        update_expression += ", customer_name = :customer_name"
+        expression_values[":customer_name"] = customer_name
+
+    try:
+        table.update_item(
+            Key={"slot_id": slot_id},
+            UpdateExpression=update_expression,
+            ExpressionAttributeNames=expression_names,
+            ExpressionAttributeValues=expression_values,
+            ConditionExpression="#status = :available",
+        )
+    except Exception:
+        return {
+            "success": False,
+            "message": "That time was just taken. Please choose another option.",
+        }
+
+    updated_slot = dict(slot)
+    updated_slot["status"] = "BOOKED"
+    updated_slot["booking_id"] = booking_id
+    if customer_name:
+        updated_slot["customer_name"] = customer_name
+
+    return {
+        "success": True,
+        "booking_id": booking_id,
+        "slot": updated_slot,
+        "message": format_booking_confirmation(updated_slot),
+    }
+
+
+def format_booking_confirmation(slot: Dict[str, Any]) -> str:
+    service_name = slot.get("service_name", "your service")
+    date_text = slot.get("date", "your selected date")
+    time_text = slot.get("start_time", "your selected time")
+    staff_name = slot.get("staff_name")
+    customer_name = slot.get("customer_name")
+
+    lines = []
+
+    if customer_name:
+        lines.append(f"Perfect, {customer_name} — you’re booked.")
+    else:
+        lines.append("Perfect — your appointment is booked.")
+
+    lines.append(f"{service_name} on {date_text} at {time_text}")
+
+    if staff_name:
+        lines.append(f"with {staff_name}")
+
+    return "\n".join(lines)

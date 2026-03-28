@@ -1,0 +1,388 @@
+{
+    "Items": [
+        {
+            "slot_id": {
+                "S": "slot_2026-03-29_1130AM_stf_002_svc_prenatal_60"
+            },
+            "service_id": {
+                "S": "svc_prenatal_60"
+            },
+            "date": {
+                "S": "2026-03-29"
+            },
+            "date_start": {
+                "S": "2026-03-29#11:30 AM"
+            },
+            "status": {
+                "S": "AVAILABLE"
+            },
+            "room_type": {
+                "S": "Massage Room"
+            },
+            "week_start": {
+                "S": "2026-03-23"
+            },
+            "location_id": {
+                "S": "omaha_main"
+            },
+            "staff_id": {
+                "S": "stf_002"
+            },
+            "start_time": {
+                "S": "11:30 AM"
+            },
+            "end_time": {
+                "S": "12:30 PM"
+            },
+            "day_of_week": {
+                "S": "Sunday"
+            }
+        },
+        {
+            "slot_id": {
+                "S": "slot_2026-03-27_1200PM_stf_003_svc_classic_facial_50"
+            },
+            "service_id": {
+                "S": "svc_classic_facial_50"
+            },
+            "date": {
+                "S": "2026-03-27"
+            },
+            "date_start": {
+                "S": "2026-03-27#12:00 PM"
+            },
+            "status": {
+                "S": "AVAILABLE"
+            },
+            "room_type": {
+                "S": "Treatment Room"
+            },
+            "week_start": {
+                "S": "2026-03-23"
+            },
+            "location_id": {
+                "S": "omaha_main"
+            },
+            "staff_id": {
+                "S": "stf_003"
+            },
+            "start_time": {
+                "S": "12:00 PM"
+            },
+            "end_time": {
+                "S": "12:50 PM"
+            },
+            "day_of_week": {
+                "S": "Friday"
+            }
+        },
+        {
+            "slot_id": {
+                "S": "slot_2026-03-26_0400PM_stf_006_svc_classic_facial_50"
+            },
+            "service_id": {
+                "S": "svc_classic_facial_50"
+            },
+            "date": {
+                "S": "2026-03-26"
+            },
+            "date_start": {
+                "S": "2026-03-26#4:00 PM"
+            },
+            "status": {
+                "S": "AVAILABLE"
+            },
+            "room_type": {
+                "S": "Treatment Room"
+            },
+            "week_start": {
+                "S": "2026-03-23"
+            },
+            "location_id": {
+                "S": "omaha_main"
+            },
+            "staff_id": {
+                "S": "stf_006"
+            },
+            "start_time": {
+                "S": "4:00 PM"
+            },
+            "end_time": {
+                "S": "4:50 PM"
+            },
+            "day_of_week": {
+                "S": "Thursday"
+            }
+        },
+        {
+            "slot_id": {
+                "S": "slot_2026-03-24_1100AM_stf_001_svc_hot_stone_75"
+            },
+            "service_id": {
+                "S": "svc_hot_stone_75"
+            },
+            "date": {
+                "S": "2026-03-24"
+            },
+            "date_start": {
+                "S": "2026-03-24#11:00 AM"
+            },
+            "status": {
+                "S": "AVAILABLE"
+            },
+            "room_type": {
+                "S": "Massage Room"
+            },
+            "week_start": {
+                "S": "2026-03-23"
+            },
+            "location_id": {
+                "S": "omaha_main"
+            },
+            "staff_id": {
+                "S": "stf_001"
+            },
+            "start_time": {
+                "S": "11:00 AM"
+            },
+            "end_time": {
+                "S": "12:15 PM"
+            },
+            "day_of_week": {
+                "S": "Tuesday"
+            }
+        },
+        {
+            "slot_id": {
+                "S": "slot_2026-03-29_0400PM_stf_006_svc_aroma_30"
+            },
+            "service_id": {
+                "S": "svc_aroma_30"
+            },
+            "date": {
+                "S": "2026-03-29"
+            },
+            "date_start": {
+                "S": "2026-03-29#4:00 PM"
+            },
+            "status": {
+                "S": "AVAILABLE"
+            },
+            "room_type": {
+                "S": "Treatment Room"
+            },
+            "week_start": {
+                "S": "2026-03-23"
+            },
+            "location_id": {
+                "S": "omaha_main"
+            },
+            "staff_id": {
+                "S": "stf_006"
+            },
+            "start_time": {
+                "S": "4:00 PM"
+            },
+            "end_time": {
+                "S": "4:30 PM"
+            },
+            "day_of_week": {
+                "S": "Sunday"
+            }
+        },
+        {
+            "slot_id": {
+                "S": "slot_2026-03-28_0430PM_stf_007_svc_aroma_30"
+            },
+            "service_id": {
+                "S": "svc_aroma_30"
+            },
+            "date": {
+                "S": "2026-03-28"
+            },
+            "date_start": {
+                "S": "2026-03-28#4:30 PM"
+            },
+            "status": {
+                "S": "AVAILABLE"
+            },
+            "room_type": {
+                "S": "Treatment Room"
+            },
+            "week_start": {
+                "S": "2026-03-23"
+            },
+            "location_id": {
+                "S": "omaha_main"
+            },
+            "staff_id": {
+                "S": "stf_007"
+            },
+            "start_time": {
+                "S": "4:30 PM"
+            },
+            "end_time": {
+                "S": "5:00 PM"
+            },
+            "day_of_week": {
+                "S": "Saturday"
+            }
+        },
+        {
+            "slot_id": {
+                "S": "slot_2026-03-26_0230PM_stf_004_svc_body_scrub_45"
+            },
+            "service_id": {
+                "S": "svc_body_scrub_45"
+            },
+            "date": {
+                "S": "2026-03-26"
+            },
+            "date_start": {
+                "S": "2026-03-26#2:30 PM"
+            },
+            "status": {
+                "S": "AVAILABLE"
+            },
+            "room_type": {
+                "S": "Wet Room"
+            },
+            "week_start": {
+                "S": "2026-03-23"
+            },
+            "location_id": {
+                "S": "omaha_main"
+            },
+            "staff_id": {
+                "S": "stf_004"
+            },
+            "start_time": {
+                "S": "2:30 PM"
+            },
+            "end_time": {
+                "S": "3:15 PM"
+            },
+            "day_of_week": {
+                "S": "Thursday"
+            }
+        },
+        {
+            "slot_id": {
+                "S": "slot_2026-03-24_0300PM_stf_005_svc_deep_tissue_60"
+            },
+            "service_id": {
+                "S": "svc_deep_tissue_60"
+            },
+            "date": {
+                "S": "2026-03-24"
+            },
+            "date_start": {
+                "S": "2026-03-24#3:00 PM"
+            },
+            "status": {
+                "S": "AVAILABLE"
+            },
+            "room_type": {
+                "S": "Massage Room"
+            },
+            "week_start": {
+                "S": "2026-03-23"
+            },
+            "location_id": {
+                "S": "omaha_main"
+            },
+            "staff_id": {
+                "S": "stf_005"
+            },
+            "start_time": {
+                "S": "3:00 PM"
+            },
+            "end_time": {
+                "S": "4:00 PM"
+            },
+            "day_of_week": {
+                "S": "Tuesday"
+            }
+        },
+        {
+            "slot_id": {
+                "S": "slot_2026-03-23_0400PM_stf_002_svc_aroma_30"
+            },
+            "service_id": {
+                "S": "svc_aroma_30"
+            },
+            "date": {
+                "S": "2026-03-23"
+            },
+            "date_start": {
+                "S": "2026-03-23#4:00 PM"
+            },
+            "status": {
+                "S": "AVAILABLE"
+            },
+            "room_type": {
+                "S": "Treatment Room"
+            },
+            "week_start": {
+                "S": "2026-03-23"
+            },
+            "location_id": {
+                "S": "omaha_main"
+            },
+            "staff_id": {
+                "S": "stf_002"
+            },
+            "start_time": {
+                "S": "4:00 PM"
+            },
+            "end_time": {
+                "S": "4:30 PM"
+            },
+            "day_of_week": {
+                "S": "Monday"
+            }
+        },
+        {
+            "slot_id": {
+                "S": "slot_2026-03-23_0100PM_stf_003_svc_classic_facial_50"
+            },
+            "service_id": {
+                "S": "svc_classic_facial_50"
+            },
+            "date": {
+                "S": "2026-03-23"
+            },
+            "date_start": {
+                "S": "2026-03-23#1:00 PM"
+            },
+            "status": {
+                "S": "AVAILABLE"
+            },
+            "room_type": {
+                "S": "Treatment Room"
+            },
+            "week_start": {
+                "S": "2026-03-23"
+            },
+            "location_id": {
+                "S": "omaha_main"
+            },
+            "staff_id": {
+                "S": "stf_003"
+            },
+            "start_time": {
+                "S": "1:00 PM"
+            },
+            "end_time": {
+                "S": "1:50 PM"
+            },
+            "day_of_week": {
+                "S": "Monday"
+            }
+        }
+    ],
+    "Count": 37,
+    "ScannedCount": 37,
+    "ConsumedCapacity": null,
+    "NextToken": "eyJFeGNsdXNpdmVTdGFydEtleSI6IG51bGwsICJib3RvX3RydW5jYXRlX2Ftb3VudCI6IDEwfQ=="
+}
