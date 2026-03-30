@@ -1,10 +1,11 @@
-from typing import Optional
+from typing import Any, Dict, Optional
 from pydantic import BaseModel, EmailStr
 
 
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
 
 
 class BookingRequest(BaseModel):

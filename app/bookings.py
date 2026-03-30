@@ -105,10 +105,9 @@ def _extract_ordinal_index(message: str) -> Optional[int]:
         if re.search(rf"\b{re.escape(key)}\b", normalized):
             return index
 
-    # Also match bare digits 1-8 as list position when the whole message is just a number
     bare = (message or "").strip()
     if re.fullmatch(r"[1-8]", bare):
-        return int(bare) - 1  # "1" -> index 0, "2" -> index 1 etc.
+        return int(bare) - 1
 
     return None
 
@@ -128,7 +127,6 @@ def _extract_name(message: str) -> Optional[str]:
             return " ".join(part.capitalize() for part in name.split())
 
     cleaned = " ".join(text.split())
-    # ⚠️ FLAG: original source had a misaligned `if` here — reconstructed as intended
     if re.fullmatch(r"[A-Za-z][A-Za-z\s'\-]{1,60}", cleaned):
         return " ".join(part.capitalize() for part in cleaned.split())
 
@@ -164,8 +162,6 @@ def get_session_state(session_id: str) -> Dict[str, Any]:
     return state
 
 
-# ⚠️ FLAG: original had service_name as a required second positional arg.
-# Fixed: slots is now second positional, service_name is optional keyword.
 def save_presented_slots(
     session_id: str,
     slots: List[Dict[str, Any]],
@@ -216,7 +212,6 @@ def _find_slot_from_last_presented(session_id: str, message: str) -> Optional[Di
     if not slots:
         return None
 
-    # Normalise compact time inputs: "930"->9:30 AM, "1230"->12:30 PM, "1400"->2:00 PM
     msg = message.strip()
     compact = re.fullmatch(r"(\d{1,2})(\d{2})", msg)
     if compact:
@@ -263,7 +258,6 @@ def _find_slot_from_last_reschedule_options(session_id: str, message: str) -> Op
     if not slots:
         return None
 
-    # Normalise compact time inputs: "930"->9:30 AM, "1230"->12:30 PM, "1400"->2:00 PM
     msg = message.strip()
     compact = re.fullmatch(r"(\d{1,2})(\d{2})", msg)
     if compact:
@@ -287,8 +281,6 @@ def _find_slot_from_last_reschedule_options(session_id: str, message: str) -> Op
 
     if requested_date and requested_time:
         for slot in slots:
-            # ⚠️ FLAG: original source had a misaligned `slot_time =` line here —
-            # reconstructed based on the matching pattern used elsewhere in the file.
             slot_date = str(slot.get("date", "")).strip()
             slot_time = _normalize_time(str(slot.get("start_time", "")))
             if slot_date == requested_date and slot_time == requested_time:
@@ -320,11 +312,8 @@ def booking_intent_detected(message: str) -> bool:
 def cancel_intent_detected(message: str) -> bool:
     normalized = _normalize_text(message)
     phrases = [
-        "cancel my booking",
-        "cancel my appointment",
-        "cancel appointment",
-        "cancel booking",
-        "cancel it",
+        "cancel my booking", "cancel my appointment",
+        "cancel appointment", "cancel booking", "cancel it",
     ]
     return any(phrase in normalized for phrase in phrases)
 
@@ -332,11 +321,8 @@ def cancel_intent_detected(message: str) -> bool:
 def reschedule_intent_detected(message: str) -> bool:
     normalized = _normalize_text(message)
     phrases = [
-        "reschedule",
-        "move my appointment",
-        "move my booking",
-        "change my appointment",
-        "change my booking",
+        "reschedule", "move my appointment", "move my booking",
+        "change my appointment", "change my booking",
     ]
     return any(phrase in normalized for phrase in phrases)
 
@@ -344,6 +330,20 @@ def reschedule_intent_detected(message: str) -> bool:
 # ---------------------------------------------------------------------------
 # Booking intake
 # ---------------------------------------------------------------------------
+
+def _first_awaiting_field(state: Dict[str, Any]) -> str:
+    """
+    Determine which field to collect first based on what's already pre-filled.
+    Order: name → phone → email → special_requests
+    """
+    if not state.get("booking_name"):
+        return "name"
+    if not state.get("booking_phone"):
+        return "phone"
+    if not state.get("booking_email"):
+        return "email"
+    return "special_requests"
+
 
 def begin_booking_intake(
     session_id: str,
@@ -354,21 +354,40 @@ def begin_booking_intake(
     clear_intake_state(session_id)
     state["pending_booking_slot"] = slot
     state["pending_booking_service"] = service_name or slot.get("service_name")
-    state["awaiting_field"] = "name"
 
-    # Prefer the explicit service_name arg over whatever the slot row says —
-    # slots can belong to multiple service types in the DB.
-    service = service_name or slot.get("service_name", "your service")
+    # Re-apply pre-filled fields after clear_intake_state wiped them
+    # (user_name / user_email remain in state since clear_intake_state doesn't touch them)
+    if state.get("user_name"):
+        state["booking_name"] = state["user_name"]
+    if state.get("user_email"):
+        state["booking_email"] = state["user_email"]
+
+    first_field = _first_awaiting_field(state)
+    state["awaiting_field"] = first_field
+
+    service  = service_name or slot.get("service_name", "your service")
     date_text = _format_display_date(str(slot.get("date", "")))
     time_text = slot.get("start_time", "your selected time")
+
+    # Build opening message based on what we already know
+    intro = (
+        f"Great choice. I can book {service} on {date_text} at {time_text}."
+    )
+
+    if first_field == "name":
+        prompt = "What name should I put on the appointment?"
+    elif first_field == "phone":
+        name = state.get("booking_name", "")
+        prompt = f"Got it{', ' + name.split()[0] if name else ''}. What phone number should we use?"
+    elif first_field == "email":
+        prompt = "What email address should we send your confirmation to?"
+    else:
+        prompt = "Any special requests? You can type them now, or say 'none'."
 
     return {
         "success": True,
         "needs_clarification": True,
-        "message": (
-            f"Great choice. I can book {service} on {date_text} at {time_text}. "
-            "What name should I put on the appointment?"
-        ),
+        "message": f"{intro} {prompt}",
     }
 
 
@@ -404,6 +423,17 @@ def continue_booking_intake(session_id: str, message: str) -> Dict[str, Any]:
                 "message": "Please send a 10-digit phone number, like 402-555-1234.",
             }
         state["booking_phone"] = phone
+        # Skip email if already pre-filled
+        if state.get("booking_email"):
+            state["awaiting_field"] = "special_requests"
+            return {
+                "success": True,
+                "needs_clarification": True,
+                "message": (
+                    f"We'll send your confirmation to {state['booking_email']}. "
+                    "Any special requests? You can type them now, or say 'none'."
+                ),
+            }
         state["awaiting_field"] = "email"
         return {
             "success": True,
@@ -448,8 +478,6 @@ def finalize_pending_booking(session_id: str) -> Dict[str, Any]:
     if not slot:
         return {"success": False, "message": "I couldn't find the appointment you were trying to reserve."}
 
-    # Stamp the service name the user actually requested onto the slot so that
-    # confirmation messages use it instead of whatever the DB row says.
     pending_service = state.get("pending_booking_service")
     if pending_service:
         slot = dict(slot)
@@ -485,7 +513,6 @@ def get_slot_by_id(slot_id: str) -> Optional[Dict[str, Any]]:
 def find_booking_by_booking_id(booking_id: str) -> Optional[Dict[str, Any]]:
     table = get_availability_table()
 
-    # Paginate fully — the booking may not land on the first scan page.
     items = []
     scan_kwargs = {"FilterExpression": Attr("booking_id").eq(booking_id)}
     response = table.scan(**scan_kwargs)
@@ -559,7 +586,6 @@ def book_slot(
         return {"success": False, "message": "That time was just taken. Please choose another option."}
 
     updated_slot = {**slot, "status": "BOOKED", "booking_id": booking_id}
-    # Use the caller-supplied service_name if provided — overrides whatever the DB row says
     if service_name:
         updated_slot["service_name"] = service_name
     if customer_name:
@@ -571,8 +597,6 @@ def book_slot(
     if special_requests:
         updated_slot["special_requests"] = special_requests
 
-    # Mark any other slots for the same staff at the same date+time as UNAVAILABLE
-    # so they don't show up in availability searches for other services.
     try:
         staff_id   = slot.get("staff_id")
         slot_date  = slot.get("date")
@@ -635,7 +659,6 @@ def cancel_booking(booking_id: str) -> Dict[str, Any]:
 
     canceled_slot = {**booking, "status": "CANCELLED", "cancelled_at": datetime.utcnow().isoformat()}
 
-    # Restore sibling slots for the same staff+date+time back to AVAILABLE
     try:
         staff_id   = booking.get("staff_id")
         slot_date  = booking.get("date")
@@ -690,10 +713,10 @@ def reschedule_booking(booking_id: str, new_slot_id: str) -> Dict[str, Any]:
     if old_slot_id == new_slot_id:
         return {"success": False, "message": "That is already your current appointment time."}
 
-    customer_name     = current_booking.get("customer_name")
-    customer_phone    = current_booking.get("customer_phone")
-    customer_email    = current_booking.get("customer_email")
-    special_requests  = current_booking.get("special_requests")
+    customer_name    = current_booking.get("customer_name")
+    customer_phone   = current_booking.get("customer_phone")
+    customer_email   = current_booking.get("customer_email")
+    special_requests = current_booking.get("special_requests")
 
     try:
         table.update_item(
@@ -793,7 +816,6 @@ def continue_cancel_flow(session_id: str, message: str) -> Dict[str, Any]:
 
     clear_cancel_state(session_id)
     result = cancel_booking(booking_id)
-    # If cancel failed (booking not found etc.), re-set awaiting state so user can retry
     if not result.get("success"):
         get_session_state(session_id)["awaiting_cancel_booking_id"] = True
     return result
@@ -813,7 +835,6 @@ def begin_reschedule_flow(session_id: str, message: str) -> Dict[str, Any]:
 
     booking = find_booking_by_booking_id(booking_id)
     if not booking:
-        # Keep the flow alive so the user can retry with a different ID
         state["awaiting_reschedule_booking_id"] = True
         return {
             "success": False,
@@ -833,8 +854,8 @@ def begin_reschedule_flow(session_id: str, message: str) -> Dict[str, Any]:
     state["pending_reschedule_booking"] = booking
 
     service_name = booking.get("service_name", "your service")
-    date_text = _format_display_date(str(booking.get("date", "")))
-    time_text = booking.get("start_time", "your current time")
+    date_text    = _format_display_date(str(booking.get("date", "")))
+    time_text    = booking.get("start_time", "your current time")
 
     return {
         "success": True,
@@ -893,15 +914,15 @@ def finalize_reschedule_from_message(session_id: str, message: str) -> Dict[str,
 # ---------------------------------------------------------------------------
 
 def format_booking_confirmation(slot: Dict[str, Any]) -> str:
-    service_name    = slot.get("service_name", "your service")
-    date_text       = _format_display_date(str(slot.get("date", "")))
-    time_text       = slot.get("start_time", "your selected time")
-    staff_name      = slot.get("staff_name")
-    customer_name   = slot.get("customer_name")
-    customer_phone  = slot.get("customer_phone")
-    customer_email  = slot.get("customer_email")
+    service_name     = slot.get("service_name", "your service")
+    date_text        = _format_display_date(str(slot.get("date", "")))
+    time_text        = slot.get("start_time", "your selected time")
+    staff_name       = slot.get("staff_name")
+    customer_name    = slot.get("customer_name")
+    customer_phone   = slot.get("customer_phone")
+    customer_email   = slot.get("customer_email")
     special_requests = slot.get("special_requests")
-    booking_id      = slot.get("booking_id")
+    booking_id       = slot.get("booking_id")
 
     lines = [f"Perfect, {customer_name} — you're all set." if customer_name else "Perfect — your appointment is booked."]
 

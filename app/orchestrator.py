@@ -20,6 +20,12 @@ from app.intent_router import detect_intent, _extract_date
 from app.scheduling import format_slots_for_response, get_available_slots_for_service
 from app.services import list_services
 
+try:
+    from app.booking_history import get_bookings_by_email, format_history_for_concierge
+except Exception:
+    get_bookings_by_email = None
+    format_history_for_concierge = None
+
 log = logging.getLogger(__name__)
 
 
@@ -231,14 +237,13 @@ def _booking_active(state: Dict[str, Any]) -> bool:
         return True
     if state.get("collecting_booking_details") is True:
         return True
-    # Active intake: bookings.py sets awaiting_field when collecting name/phone/email
     if state.get("awaiting_field"):
         return True
     return False
 
 
 # ---------------------------------------------------------------------------
-# Pending booking state — multi-turn "what date?" / "what time?" flows
+# Pending booking state
 # ---------------------------------------------------------------------------
 
 def _set_pending_service(session_id: str, service_name: str) -> None:
@@ -252,6 +257,24 @@ def _clear_pending_service(session_id: str) -> None:
     for key in ("pending_booking_service", "pending_booking_date",
                 "awaiting_booking_date", "awaiting_booking_time"):
         state.pop(key, None)
+
+
+# ---------------------------------------------------------------------------
+# Pre-fill booking fields from logged-in user session
+# ---------------------------------------------------------------------------
+
+def _prefill_user_booking_fields(session_id: str) -> None:
+    """
+    Copy user_name and user_email from session context into booking intake fields
+    so the concierge skips asking for information we already have.
+    """
+    state = get_session_state(session_id)
+    if state.get("user_name") and not state.get("booking_name"):
+        state["booking_name"] = state["user_name"]
+        log.debug("Pre-filled booking_name from user session: %s", state["user_name"])
+    if state.get("user_email") and not state.get("booking_email"):
+        state["booking_email"] = state["user_email"]
+        log.debug("Pre-filled booking_email from user session: %s", state["user_email"])
 
 
 # ---------------------------------------------------------------------------
@@ -278,7 +301,6 @@ def _present_slots(
     except Exception as exc:
         log.warning("save_presented_slots error: %s", exc)
 
-    # Store state for the follow-up time selection
     state = get_session_state(session_id)
     state["pending_booking_service"] = service_name
     state["pending_booking_date"] = date
@@ -297,11 +319,6 @@ def _try_start_intake(
     msg: str,
     session_id: str,
 ) -> Optional[Dict[str, Any]]:
-    """
-    If state says we're awaiting a time selection, try to match the user's
-    message to a presented slot and start the booking intake.
-    Returns None if this doesn't look like a time selection.
-    """
     state = get_session_state(session_id)
     if not state.get("awaiting_booking_time"):
         return None
@@ -312,7 +329,6 @@ def _try_start_intake(
 
     selected_slot = None
 
-    # Ordinal: "the first one", "second", "1st" etc.
     ordinal_map = {
         "first": 0, "1st": 0, "one": 0,
         "second": 1, "2nd": 1, "two": 1,
@@ -325,15 +341,12 @@ def _try_start_intake(
                 selected_slot = slots[idx]
             break
 
-    # Bare digit 1-8 as list position (only when entire message is that digit)
     if not selected_slot and re.fullmatch(r"[1-8]", message.strip()):
         idx = int(message.strip()) - 1
         if idx < len(slots):
             selected_slot = slots[idx]
 
-    # Time match: "9am", "9:00 AM", "9:00", or bare "9" / "10" / "11"
     if not selected_slot:
-        # Full time with am/pm: "9am", "9:00 AM", "9:30pm"
         time_m = re.search(r"\b(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b", message, re.IGNORECASE)
         if time_m:
             requested = time_m.group(1).strip().upper().replace(" ", "")
@@ -344,10 +357,7 @@ def _try_start_intake(
                     break
 
     if not selected_slot:
-        # Bare inputs: "9", "9:30", "930", "1030" — match against slot start_time
         raw = message.strip()
-
-        # Normalise "930" -> "9:30", "1030" -> "10:30", "1200" -> "12:00"
         compact_m = re.fullmatch(r"(\d{1,2})(\d{2})", raw)
         if compact_m:
             raw = "{}:{}".format(compact_m.group(1), compact_m.group(2))
@@ -356,7 +366,6 @@ def _try_start_intake(
         if bare_m:
             hour = int(bare_m.group(1))
             minute = int(bare_m.group(2)) if bare_m.group(2) else 0
-            # Treat hours >= 12 as PM (12=noon, 13=1PM etc.)
             if hour > 12:
                 hour = hour - 12
             for slot in slots:
@@ -367,7 +376,7 @@ def _try_start_intake(
                             parsed = datetime.strptime(raw_time.strip().upper(), fmt)
                             if parsed.hour == hour and parsed.minute == minute:
                                 selected_slot = slot
-                            break  # parsed successfully — stop trying formats
+                            break
                         except ValueError:
                             continue
                 except Exception:
@@ -375,7 +384,6 @@ def _try_start_intake(
                 if selected_slot:
                     break
 
-    # Single slot + affirmative
     if not selected_slot and len(slots) == 1:
         if any(w in msg for w in ("that", "yes", "ok", "sure", "sounds good", "perfect", "good")):
             selected_slot = slots[0]
@@ -384,9 +392,10 @@ def _try_start_intake(
         return None
 
     state.pop("awaiting_booking_time", None)
-    # Always use the service the user asked for, not what the slot row says in the DB.
-    # Slots can be shared across service types; pending_booking_service is the source of truth.
     service_name = state.get("pending_booking_service") or selected_slot.get("service_name")
+
+    # Pre-fill name/email from user session before starting intake
+    _prefill_user_booking_fields(session_id)
 
     return _safe_call(
         "I'm sorry, I couldn't start the booking.",
@@ -441,18 +450,35 @@ def _handle_booking(intent: Dict[str, Any], msg: str, session_id: str) -> Dict[s
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def handle_chat(message: str, session_id: str = "default") -> Dict[str, Any]:
+def handle_chat(
+    message: str,
+    session_id: str = "default",
+    context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     message = (message or "").strip()
     if not message:
         return _response("How can I help you today?", session_id)
 
-    msg = _normalize(message)
+    # --- User context ---
+    context      = context or {}
+    user_name    = context.get("user_name")
+    user_email   = context.get("user_email")
+    user_token   = context.get("user_token")
+    is_logged_in = bool(user_token and user_name)
+
+    msg   = _normalize(message)
     state = get_session_state(session_id) or {}
+
+    # Persist user context in session so booking intake can pre-fill fields
+    if is_logged_in:
+        state["user_name"]  = user_name
+        state["user_email"] = user_email
+        state["user_token"] = user_token
+
     flow = _active_flow(state)
 
-    # 1. Active booking intake (collecting name / phone / email / special requests)
+    # 1. Active booking intake
     if _booking_active(state):
-        # Guard against server restart wiping slot data mid-flow — give user a clean recovery
         if not state.get("pending_booking_slot") and state.get("awaiting_field"):
             get_session_state(session_id).clear()
             return _response(
@@ -461,21 +487,17 @@ def handle_chat(message: str, session_id: str = "default") -> Dict[str, Any]:
             )
         return _continue_booking(session_id, message)
 
-    # 2. Cancel flow — bookings.py sets awaiting_cancel_booking_id, not a flow key
+    # 2. Cancel flow
     if flow in {"cancel", "cancel_request"} or state.get("awaiting_cancel_booking_id"):
         return _continue_cancel(session_id, message)
 
-    # 3. Reschedule flow — two distinct stages need different handlers
+    # 3. Reschedule flow
     if flow in {"reschedule", "reschedule_request"} or state.get("awaiting_reschedule_booking_id"):
-        # Still waiting for the booking ID — route through the ID collection flow
         return _continue_reschedule(session_id, message)
 
     if state.get("pending_reschedule_booking_id"):
-        # Booking already found — user is now providing a new date or picking a slot.
-        # Go straight to finalize rather than back through the ID flow.
         date = _extract_date(message)
         if date:
-            # User gave a date — fetch slots for that date and present them
             booking = state.get("pending_reschedule_booking")
             service_name = booking.get("service_name", "") if booking else ""
             slots = _fetch_slots(service_name, date, _extract_time_of_day(msg))
@@ -489,13 +511,10 @@ def handle_chat(message: str, session_id: str = "default") -> Dict[str, Any]:
                 set_reschedule_options(session_id, slots)
             except Exception as exc:
                 log.warning("set_reschedule_options error: %s", exc)
-            # Also save to last_presented_slots so _find_slot_from_last_reschedule_options
-            # and the time-matching logic both have access to the same slot list
             try:
                 save_presented_slots(session_id, slots)
             except Exception as exc:
                 log.warning("save_presented_slots (reschedule) error: %s", exc)
-            # Store awaiting flag so the next message routes here for slot matching
             state["awaiting_reschedule_slot"] = True
             from app.scheduling import format_slots_for_response
             return _response(
@@ -504,7 +523,6 @@ def handle_chat(message: str, session_id: str = "default") -> Dict[str, Any]:
                 ),
                 session_id,
             )
-        # No date — try to match against previously presented reschedule slots
         result = _safe_call(
             "Please choose one of the new time options I shared.",
             session_id,
@@ -513,7 +531,7 @@ def handle_chat(message: str, session_id: str = "default") -> Dict[str, Any]:
         )
         return result
 
-    # 4a. Reschedule slot selection — user picking a time from presented reschedule slots
+    # 4a. Reschedule slot selection
     if state.get("awaiting_reschedule_slot"):
         result = _safe_call(
             "Please choose one of the new time options I shared.",
@@ -521,7 +539,6 @@ def handle_chat(message: str, session_id: str = "default") -> Dict[str, Any]:
             lambda: finalize_reschedule_from_message(session_id, message),
             lambda: finalize_reschedule_from_message(session_id=session_id, message=message),
         )
-        # If finalize succeeded, clear the awaiting flag
         if result.get("response", "").startswith(("Your appointment", "Done,")):
             state.pop("awaiting_reschedule_slot", None)
         return result
@@ -531,7 +548,7 @@ def handle_chat(message: str, session_id: str = "default") -> Dict[str, Any]:
     if intake:
         return intake
 
-    # 5. Date follow-up ("what date?" was asked, user is answering)
+    # 5. Date follow-up
     if state.get("awaiting_booking_date"):
         date = _extract_date(message)
         service_name = state.get("pending_booking_service")
@@ -545,7 +562,23 @@ def handle_chat(message: str, session_id: str = "default") -> Dict[str, Any]:
             session_id,
         )
 
-    # 6. LLM intent detection
+    # 6. Booking history request
+    history_triggers = (
+        "my bookings", "my appointments", "my history", "show my",
+        "what have i booked", "upcoming appointments", "past appointments",
+        "my upcoming", "my past", "appointment history",
+    )
+    if any(t in msg for t in history_triggers):
+        if is_logged_in and get_bookings_by_email and format_history_for_concierge:
+            bookings = get_bookings_by_email(user_email)
+            return _response(format_history_for_concierge(bookings), session_id)
+        else:
+            return _response(
+                "Please sign in to your account to view your appointment history.",
+                session_id,
+            )
+
+    # 7. LLM intent detection
     intent = detect_intent(message)
     detected = intent.get("intent", "unknown")
     log.debug("detect_intent(%r) → %s | service=%s date=%s",
@@ -565,6 +598,14 @@ def handle_chat(message: str, session_id: str = "default") -> Dict[str, Any]:
 
     if detected == "reschedule_request":
         return _begin_reschedule(session_id, message)
+
+    # Personalized fallback for logged-in users
+    if is_logged_in:
+        return _response(
+            f"I'm here to help, {user_name.split()[0]}. I can explore services, check availability, "
+            "book an appointment, reschedule, or cancel a booking.",
+            session_id,
+        )
 
     return _response(
         "I can help you explore services, check availability, book an appointment, "
