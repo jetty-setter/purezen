@@ -13,6 +13,17 @@ log = logging.getLogger(__name__)
 
 # In-memory session store. Not persistent across restarts.
 SESSION_STATE: Dict[str, Dict[str, Any]] = {}
+SESSION_TTL_SECONDS = 3600  # 1 hour
+
+
+def _purge_expired_sessions() -> None:
+    now = datetime.utcnow().timestamp()
+    expired = [
+        sid for sid, state in SESSION_STATE.items()
+        if now - state.get("last_active", now) > SESSION_TTL_SECONDS
+    ]
+    for sid in expired:
+        del SESSION_STATE[sid]
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +158,10 @@ def _extract_email(message: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 def get_session_state(session_id: str) -> Dict[str, Any]:
-    return SESSION_STATE.setdefault(session_id, {})
+    _purge_expired_sessions()
+    state = SESSION_STATE.setdefault(session_id, {})
+    state["last_active"] = datetime.utcnow().timestamp()
+    return state
 
 
 # ⚠️ FLAG: original had service_name as a required second positional arg.

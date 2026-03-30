@@ -70,5 +70,8 @@ def chat(request: ChatRequest) -> ChatResponse:
     return ChatResponse(session_id=resolved_session_id, response=response_text)
 
 
+from app.users import router as users_router
+app.include_router(users_router)
+
 if services_router:
     app.include_router(services_router)
