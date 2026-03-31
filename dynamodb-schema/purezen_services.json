@@ -1,0 +1,78 @@
+{
+    "Table": {
+        "AttributeDefinitions": [
+            {
+                "AttributeName": "category",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "name",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "service_id",
+                "AttributeType": "S"
+            }
+        ],
+        "TableName": "purezen_services",
+        "KeySchema": [
+            {
+                "AttributeName": "service_id",
+                "KeyType": "HASH"
+            }
+        ],
+        "TableStatus": "ACTIVE",
+        "CreationDateTime": "2026-03-20T11:53:46.272000-05:00",
+        "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+        },
+        "TableSizeBytes": 2375,
+        "ItemCount": 8,
+        "TableArn": "arn:aws:dynamodb:us-east-1:087107998132:table/purezen_services",
+        "TableId": "02f8ea84-e879-44b5-b1e8-0dd9d06fde94",
+        "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST",
+            "LastUpdateToPayPerRequestDateTime": "2026-03-20T11:53:46.272000-05:00"
+        },
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "category-index",
+                "KeySchema": [
+                    {
+                        "AttributeName": "category",
+                        "KeyType": "HASH"
+                    },
+                    {
+                        "AttributeName": "name",
+                        "KeyType": "RANGE"
+                    }
+                ],
+                "Projection": {
+                    "ProjectionType": "ALL"
+                },
+                "IndexStatus": "ACTIVE",
+                "ProvisionedThroughput": {
+                    "NumberOfDecreasesToday": 0,
+                    "ReadCapacityUnits": 0,
+                    "WriteCapacityUnits": 0
+                },
+                "IndexSizeBytes": 2375,
+                "ItemCount": 8,
+                "IndexArn": "arn:aws:dynamodb:us-east-1:087107998132:table/purezen_services/index/category-index",
+                "WarmThroughput": {
+                    "ReadUnitsPerSecond": 12000,
+                    "WriteUnitsPerSecond": 4000,
+                    "Status": "ACTIVE"
+                }
+            }
+        ],
+        "DeletionProtectionEnabled": false,
+        "WarmThroughput": {
+            "ReadUnitsPerSecond": 12000,
+            "WriteUnitsPerSecond": 4000,
+            "Status": "ACTIVE"
+        }
+    }
+}

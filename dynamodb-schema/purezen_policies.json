@@ -1,0 +1,78 @@
+{
+    "Table": {
+        "AttributeDefinitions": [
+            {
+                "AttributeName": "category",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "policy_id",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "title",
+                "AttributeType": "S"
+            }
+        ],
+        "TableName": "purezen_policies",
+        "KeySchema": [
+            {
+                "AttributeName": "policy_id",
+                "KeyType": "HASH"
+            }
+        ],
+        "TableStatus": "ACTIVE",
+        "CreationDateTime": "2026-03-20T11:57:20.468000-05:00",
+        "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+        },
+        "TableSizeBytes": 1313,
+        "ItemCount": 5,
+        "TableArn": "arn:aws:dynamodb:us-east-1:087107998132:table/purezen_policies",
+        "TableId": "f2bf6ef6-70b5-4a9a-9e9a-75303d27a051",
+        "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST",
+            "LastUpdateToPayPerRequestDateTime": "2026-03-20T11:57:20.468000-05:00"
+        },
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "category-title-index",
+                "KeySchema": [
+                    {
+                        "AttributeName": "category",
+                        "KeyType": "HASH"
+                    },
+                    {
+                        "AttributeName": "title",
+                        "KeyType": "RANGE"
+                    }
+                ],
+                "Projection": {
+                    "ProjectionType": "ALL"
+                },
+                "IndexStatus": "ACTIVE",
+                "ProvisionedThroughput": {
+                    "NumberOfDecreasesToday": 0,
+                    "ReadCapacityUnits": 0,
+                    "WriteCapacityUnits": 0
+                },
+                "IndexSizeBytes": 1313,
+                "ItemCount": 5,
+                "IndexArn": "arn:aws:dynamodb:us-east-1:087107998132:table/purezen_policies/index/category-title-index",
+                "WarmThroughput": {
+                    "ReadUnitsPerSecond": 12000,
+                    "WriteUnitsPerSecond": 4000,
+                    "Status": "ACTIVE"
+                }
+            }
+        ],
+        "DeletionProtectionEnabled": false,
+        "WarmThroughput": {
+            "ReadUnitsPerSecond": 12000,
+            "WriteUnitsPerSecond": 4000,
+            "Status": "ACTIVE"
+        }
+    }
+}

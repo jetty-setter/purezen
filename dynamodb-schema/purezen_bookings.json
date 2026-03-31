@@ -1,0 +1,150 @@
+{
+    "Table": {
+        "AttributeDefinitions": [
+            {
+                "AttributeName": "booking_id",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "customer_id",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "date",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "date_start",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "staff_id",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "start_time",
+                "AttributeType": "S"
+            }
+        ],
+        "TableName": "purezen_bookings",
+        "KeySchema": [
+            {
+                "AttributeName": "booking_id",
+                "KeyType": "HASH"
+            }
+        ],
+        "TableStatus": "ACTIVE",
+        "CreationDateTime": "2026-03-20T11:57:23.151000-05:00",
+        "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+        },
+        "TableSizeBytes": 3121,
+        "ItemCount": 11,
+        "TableArn": "arn:aws:dynamodb:us-east-1:087107998132:table/purezen_bookings",
+        "TableId": "8a8cccf3-f54c-4c98-b07b-a6dbc42f3b2e",
+        "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST",
+            "LastUpdateToPayPerRequestDateTime": "2026-03-20T11:57:23.151000-05:00"
+        },
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "date-start-index",
+                "KeySchema": [
+                    {
+                        "AttributeName": "date",
+                        "KeyType": "HASH"
+                    },
+                    {
+                        "AttributeName": "start_time",
+                        "KeyType": "RANGE"
+                    }
+                ],
+                "Projection": {
+                    "ProjectionType": "ALL"
+                },
+                "IndexStatus": "ACTIVE",
+                "ProvisionedThroughput": {
+                    "NumberOfDecreasesToday": 0,
+                    "ReadCapacityUnits": 0,
+                    "WriteCapacityUnits": 0
+                },
+                "IndexSizeBytes": 2513,
+                "ItemCount": 7,
+                "IndexArn": "arn:aws:dynamodb:us-east-1:087107998132:table/purezen_bookings/index/date-start-index",
+                "WarmThroughput": {
+                    "ReadUnitsPerSecond": 12000,
+                    "WriteUnitsPerSecond": 4000,
+                    "Status": "ACTIVE"
+                }
+            },
+            {
+                "IndexName": "customer-date-index",
+                "KeySchema": [
+                    {
+                        "AttributeName": "customer_id",
+                        "KeyType": "HASH"
+                    },
+                    {
+                        "AttributeName": "date_start",
+                        "KeyType": "RANGE"
+                    }
+                ],
+                "Projection": {
+                    "ProjectionType": "ALL"
+                },
+                "IndexStatus": "ACTIVE",
+                "ProvisionedThroughput": {
+                    "NumberOfDecreasesToday": 0,
+                    "ReadCapacityUnits": 0,
+                    "WriteCapacityUnits": 0
+                },
+                "IndexSizeBytes": 1716,
+                "ItemCount": 5,
+                "IndexArn": "arn:aws:dynamodb:us-east-1:087107998132:table/purezen_bookings/index/customer-date-index",
+                "WarmThroughput": {
+                    "ReadUnitsPerSecond": 12000,
+                    "WriteUnitsPerSecond": 4000,
+                    "Status": "ACTIVE"
+                }
+            },
+            {
+                "IndexName": "staff-date-index",
+                "KeySchema": [
+                    {
+                        "AttributeName": "staff_id",
+                        "KeyType": "HASH"
+                    },
+                    {
+                        "AttributeName": "date_start",
+                        "KeyType": "RANGE"
+                    }
+                ],
+                "Projection": {
+                    "ProjectionType": "ALL"
+                },
+                "IndexStatus": "ACTIVE",
+                "ProvisionedThroughput": {
+                    "NumberOfDecreasesToday": 0,
+                    "ReadCapacityUnits": 0,
+                    "WriteCapacityUnits": 0
+                },
+                "IndexSizeBytes": 1716,
+                "ItemCount": 5,
+                "IndexArn": "arn:aws:dynamodb:us-east-1:087107998132:table/purezen_bookings/index/staff-date-index",
+                "WarmThroughput": {
+                    "ReadUnitsPerSecond": 12000,
+                    "WriteUnitsPerSecond": 4000,
+                    "Status": "ACTIVE"
+                }
+            }
+        ],
+        "DeletionProtectionEnabled": false,
+        "WarmThroughput": {
+            "ReadUnitsPerSecond": 12000,
+            "WriteUnitsPerSecond": 4000,
+            "Status": "ACTIVE"
+        }
+    }
+}

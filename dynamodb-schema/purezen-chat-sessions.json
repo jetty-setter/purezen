@@ -1,0 +1,41 @@
+{
+    "Table": {
+        "AttributeDefinitions": [
+            {
+                "AttributeName": "session_id",
+                "AttributeType": "S"
+            }
+        ],
+        "TableName": "purezen-chat-sessions",
+        "KeySchema": [
+            {
+                "AttributeName": "session_id",
+                "KeyType": "HASH"
+            }
+        ],
+        "TableStatus": "ACTIVE",
+        "CreationDateTime": "2026-03-18T19:17:40.585000-05:00",
+        "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+        },
+        "TableSizeBytes": 0,
+        "ItemCount": 0,
+        "TableArn": "arn:aws:dynamodb:us-east-1:087107998132:table/purezen-chat-sessions",
+        "TableId": "c2a80961-2da6-444a-abb1-cbd2d40e62a2",
+        "BillingModeSummary": {
+            "BillingMode": "PAY_PER_REQUEST",
+            "LastUpdateToPayPerRequestDateTime": "2026-03-18T19:17:40.585000-05:00"
+        },
+        "TableClassSummary": {
+            "TableClass": "STANDARD"
+        },
+        "DeletionProtectionEnabled": false,
+        "WarmThroughput": {
+            "ReadUnitsPerSecond": 12000,
+            "WriteUnitsPerSecond": 4000,
+            "Status": "ACTIVE"
+        }
+    }
+}
