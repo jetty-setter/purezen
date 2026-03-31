@@ -1,0 +1,118 @@
+[
+  {
+    "role": "Senior Massage Therapist",
+    "last_name": "Carter",
+    "first_name": "Mia",
+    "weekly_hours_limit": 40,
+    "location_id": "omaha_main",
+    "staff_id": "stf_001",
+    "skills": [
+      "massage_hot_stone",
+      "massage_swedish",
+      "massage_deep_tissue"
+    ],
+    "is_active": true,
+    "email": "mia.carter@purezenspa.com",
+    "employment_type": "Full-Time",
+    "display_name": "Mia C."
+  },
+  {
+    "role": "Licensed Esthetician",
+    "last_name": "Nguyen",
+    "first_name": "Sophia",
+    "weekly_hours_limit": 40,
+    "location_id": "omaha_main",
+    "staff_id": "stf_003",
+    "skills": [
+      "aromatherapy",
+      "facial_classic",
+      "facial_advanced"
+    ],
+    "is_active": true,
+    "email": "sophia.nguyen@purezenspa.com",
+    "employment_type": "Full-Time",
+    "display_name": "Sophia N."
+  },
+  {
+    "role": "Body Treatment Specialist",
+    "last_name": "Martin",
+    "first_name": "Chloe",
+    "weekly_hours_limit": 24,
+    "location_id": "omaha_main",
+    "staff_id": "stf_006",
+    "skills": [
+      "aromatherapy",
+      "facial_classic",
+      "body_treatment"
+    ],
+    "is_active": true,
+    "email": "chloe.martin@purezenspa.com",
+    "employment_type": "Part-Time",
+    "display_name": "Chloe M."
+  },
+  {
+    "role": "Massage Therapist",
+    "last_name": "Bennett",
+    "first_name": "Olivia",
+    "weekly_hours_limit": 30,
+    "location_id": "omaha_main",
+    "staff_id": "stf_002",
+    "skills": [
+      "aromatherapy",
+      "massage_swedish",
+      "massage_prenatal"
+    ],
+    "is_active": true,
+    "email": "olivia.bennett@purezenspa.com",
+    "employment_type": "Part-Time",
+    "display_name": "Olivia B."
+  },
+  {
+    "role": "Esthetician",
+    "last_name": "Ramirez",
+    "first_name": "Ava",
+    "weekly_hours_limit": 28,
+    "location_id": "omaha_main",
+    "staff_id": "stf_004",
+    "skills": [
+      "aromatherapy",
+      "facial_classic",
+      "body_treatment"
+    ],
+    "is_active": true,
+    "email": "ava.ramirez@purezenspa.com",
+    "employment_type": "Part-Time",
+    "display_name": "Ava R."
+  },
+  {
+    "role": "Guest Care Specialist",
+    "last_name": "Lee",
+    "first_name": "Grace",
+    "weekly_hours_limit": 20,
+    "location_id": "omaha_main",
+    "staff_id": "stf_007",
+    "skills": [
+      "aromatherapy"
+    ],
+    "is_active": true,
+    "email": "grace.lee@purezenspa.com",
+    "employment_type": "Part-Time",
+    "display_name": "Grace L."
+  },
+  {
+    "role": "Massage Therapist",
+    "last_name": "Brooks",
+    "first_name": "Ethan",
+    "weekly_hours_limit": 24,
+    "location_id": "omaha_main",
+    "staff_id": "stf_005",
+    "skills": [
+      "massage_swedish",
+      "massage_deep_tissue"
+    ],
+    "is_active": true,
+    "email": "ethan.brooks@purezenspa.com",
+    "employment_type": "Part-Time",
+    "display_name": "Ethan B."
+  }
+]

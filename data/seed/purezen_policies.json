@@ -1,0 +1,47 @@
+[
+  {
+    "last_updated": "2026-03-01",
+    "content": "Appointments must be cancelled at least 24 hours in advance to avoid a cancellation fee.",
+    "policy_id": "pol_cancel_24hr",
+    "category": "Booking",
+    "short_summary": "24-hour notice required for cancellations.",
+    "is_active": true,
+    "title": "Cancellation Policy"
+  },
+  {
+    "last_updated": "2026-03-01",
+    "content": "Gift cards may be used toward services and retail purchases and are non-refundable.",
+    "policy_id": "pol_gift_cards",
+    "category": "Payments",
+    "short_summary": "Gift cards are non-refundable and valid for services or retail.",
+    "is_active": true,
+    "title": "Gift Card Policy"
+  },
+  {
+    "last_updated": "2026-03-01",
+    "content": "Late arrivals may receive abbreviated service time to avoid impacting the next guest appointment.",
+    "policy_id": "pol_late_arrival",
+    "category": "Booking",
+    "short_summary": "Late arrivals may shorten treatment time.",
+    "is_active": true,
+    "title": "Late Arrival Policy"
+  },
+  {
+    "last_updated": "2026-03-01",
+    "content": "Prenatal massage is offered after the first trimester. Clients should consult their physician if they have any concerns.",
+    "policy_id": "pol_prenatal_clearance",
+    "category": "Health",
+    "short_summary": "Prenatal massage is available after the first trimester.",
+    "is_active": true,
+    "title": "Prenatal Service Policy"
+  },
+  {
+    "last_updated": "2026-03-01",
+    "content": "Guests are encouraged to arrive 15 minutes early for intake, changing, and relaxation before treatment.",
+    "policy_id": "pol_arrival_15min",
+    "category": "Guest Experience",
+    "short_summary": "Please arrive 15 minutes early.",
+    "is_active": true,
+    "title": "Arrival Policy"
+  }
+]
