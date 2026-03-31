@@ -9,7 +9,7 @@ from app.config import OLLAMA_MODEL, OLLAMA_URL
 
 log = logging.getLogger(__name__)
 
-OLLAMA_TIMEOUT = 60
+OLLAMA_TIMEOUT = 120
 
 
 def call_ollama(prompt: str, system: Optional[str] = None) -> str:

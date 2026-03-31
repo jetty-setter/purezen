@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -23,6 +22,11 @@ try:
     from app.booking_history import router as history_router
 except Exception:
     history_router = None
+
+try:
+    from app.admin_routes import router as admin_router
+except Exception:
+    admin_router = None
 
 app = FastAPI(title="PureZen API")
 
@@ -92,3 +96,6 @@ if users_router:
 
 if history_router:
     app.include_router(history_router)
+
+if admin_router:
+    app.include_router(admin_router)
