@@ -31,8 +31,8 @@ except Exception:
 app = FastAPI(title="PureZen API")
 
 ALLOWED_ORIGINS = [
-    "http://purezen-spa-site-087107998132-us-east-1-an.s3-website-us-east-1.amazonaws.com",
-    "http://pzalb-1645347680.us-east-1.elb.amazonaws.com",
+    "http://purezen-350578858687-us-east-1-an.s3-website-us-east-1.amazonaws.com",
+    "http://pzalb-1969659663.us-east-1.elb.amazonaws.com",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
