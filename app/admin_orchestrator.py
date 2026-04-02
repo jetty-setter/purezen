@@ -157,10 +157,162 @@ def _route(intent: Dict[str, Any], data_fns: Dict[str, Callable]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Answer generation
+# Deterministic formatters — no LLM needed for structured data
 # ---------------------------------------------------------------------------
 
-def _answer(question: str, tool_result: str) -> str:
+def _format_staff(data: str) -> Optional[str]:
+    """Format staff roster without LLM."""
+    try:
+        staff = __import__("json").loads(data)
+        if not staff:
+            return "No active staff members found."
+        active = [s for s in staff if s.get("active", True)]
+        names  = [s.get("name", "Unknown") for s in active]
+        if not names:
+            return "No active staff members found."
+        if len(names) == 1:
+            return f"{names[0]} is the active staff member on the roster."
+        return f"The active staff are: {', '.join(names[:-1])}, and {names[-1]}."
+    except Exception:
+        return None
+
+
+def _format_trends(data: str, question: str) -> Optional[str]:
+    """Format trends/statistics without LLM."""
+    try:
+        import json as _json
+        t = _json.loads(data)
+        q = question.lower()
+
+        by_staff   = t.get("by_staff", {})
+        by_service = t.get("by_service", {})
+        total      = t.get("total_bookings", 0)
+        cancelled  = t.get("total_cancelled", 0)
+        rate       = t.get("cancellation_rate", 0)
+
+        # Cancellation questions
+        if any(w in q for w in ("cancel", "cancellation")):
+            if by_service:
+                top_svc  = next(iter(by_service))
+                # Find cancelled by service from raw — use totals as proxy
+                return (
+                    f"Based on overall booking data, {top_svc} has the highest booking volume "
+                    f"with a system-wide cancellation rate of {rate}% "
+                    f"({cancelled} of {total + cancelled} total bookings cancelled)."
+                )
+
+        # Busiest staff / most bookings
+        if any(w in q for w in ("most bookings", "busiest", "busiest staff", "most popular staff")):
+            if by_staff:
+                top      = next(iter(by_staff))
+                top_count = by_staff[top]
+                pct      = round(top_count / max(total, 1) * 100, 1)
+                return f"{top} has the most bookings with {top_count} total, representing {pct}% of all appointments."
+
+        # Most popular service
+        if any(w in q for w in ("popular service", "most booked service", "top service")):
+            if by_service:
+                top      = next(iter(by_service))
+                top_count = by_service[top]
+                return f"{top} is the most booked service with {top_count} appointments."
+
+        # General stats
+        return (
+            f"PureZen has {total} total bookings with a {rate}% cancellation rate. "
+            f"The most booked service is {next(iter(by_service), 'N/A')} "
+            f"and the busiest staff member is {next(iter(by_staff), 'N/A')}."
+        )
+    except Exception:
+        return None
+
+
+def _format_schedule(data: str, date: Optional[str]) -> Optional[str]:
+    """Format daily schedule without LLM."""
+    try:
+        import json as _json
+        bookings = _json.loads(data)
+        date_label = date or "that date"
+        try:
+            from datetime import datetime as _dt
+            date_label = _dt.strptime(date, "%Y-%m-%d").strftime("%B %-d")
+        except Exception:
+            pass
+
+        if not bookings:
+            return f"There are no bookings scheduled for {date_label}."
+
+        upcoming  = [b for b in bookings if b.get("status") == "Upcoming"]
+        completed = [b for b in bookings if b.get("status") == "Completed"]
+        cancelled = [b for b in bookings if b.get("status") == "Cancelled"]
+
+        total = len(bookings)
+        parts = [f"There are {total} appointment{'s' if total != 1 else ''} on {date_label}"]
+        if upcoming:
+            parts.append(f"{len(upcoming)} upcoming")
+        if completed:
+            parts.append(f"{len(completed)} completed")
+        if cancelled:
+            parts.append(f"{len(cancelled)} cancelled")
+
+        staff = list({b.get("staff_name") for b in bookings if b.get("staff_name")})
+        if staff:
+            parts.append(f"Staff on duty: {', '.join(sorted(staff))}")
+
+        return ". ".join(parts) + "."
+    except Exception:
+        return None
+
+
+def _format_upcoming(data: str) -> Optional[str]:
+    """Format upcoming bookings without LLM."""
+    try:
+        import json as _json
+        bookings = _json.loads(data)
+        if not bookings:
+            return "There are no upcoming appointments."
+        count = len(bookings)
+        next_b = bookings[0]
+        service = next_b.get("service_name", "an appointment")
+        date    = next_b.get("date_display") or next_b.get("date", "")
+        time    = next_b.get("start_time", "")
+        staff   = next_b.get("staff_name", "")
+        next_str = f"{service} on {date} at {time}"
+        if staff:
+            next_str += f" with {staff}"
+        return f"There are {count} upcoming appointment{'s' if count != 1 else ''}. Next up: {next_str}."
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Answer generation — deterministic first, LLM fallback
+# ---------------------------------------------------------------------------
+
+def _answer(question: str, tool_result: str, intent: Dict[str, Any]) -> str:
+    """
+    Generate a plain-text answer from tool data.
+    Uses deterministic formatters for structured intents — no LLM needed.
+    Falls back to LLM only for general/customer queries.
+    """
+    kind = intent.get("intent", "general")
+
+    # Deterministic formatters — instant, no LLM call
+    formatted = None
+    if kind == "staff_query":
+        formatted = _format_staff(tool_result)
+    elif kind == "trends_query":
+        formatted = _format_trends(tool_result, question)
+    elif kind == "schedule_query":
+        formatted = _format_schedule(tool_result, intent.get("date"))
+    elif kind == "upcoming_query":
+        formatted = _format_upcoming(tool_result)
+
+    if formatted:
+        log.info("Deterministic answer for intent=%s", kind)
+        return formatted
+
+    # LLM fallback for general/customer/range queries
+    log.info("LLM answer for intent=%s", kind)
     data   = tool_result if len(tool_result) <= 2000 else tool_result[:2000] + "... [truncated]"
     prompt = (
         f"Data:\n{data}\n\n"
@@ -206,4 +358,4 @@ def orchestrate(question: str, data_fns: Dict[str, Callable]) -> str:
     )
 
     tool_result = _route(intent, data_fns)
-    return _answer(question, tool_result)
+    return _answer(question, tool_result, intent)
