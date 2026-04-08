@@ -285,7 +285,30 @@ def _format_schedule(data: str, date: Optional[str]) -> Optional[str]:
         return None
 
 
-def _format_upcoming(data: str) -> Optional[str]:
+def _format_staff_bookings(data: str, name: str) -> Optional[str]:
+    """Format staff booking history without LLM."""
+    try:
+        import json as _json
+        bookings = _json.loads(data)
+        if not bookings:
+            return f"No bookings found assigned to {name}."
+        total    = len(bookings)
+        upcoming = [b for b in bookings if b.get("status") == "Upcoming"]
+        completed = [b for b in bookings if b.get("status") == "Completed"]
+        lines = [f"{name} has {total} booking{'s' if total != 1 else ''} on record "
+                 f"({len(upcoming)} upcoming, {len(completed)} completed)."]
+        for b in bookings[:5]:
+            date    = b.get("date_display") or b.get("date", "Unknown date")
+            time    = b.get("start_time", "")
+            service = b.get("service_name", "Unknown service")
+            status  = b.get("status", "")
+            customer = b.get("customer_name", "Guest")
+            lines.append(f"• {date} at {time} — {service} with {customer} [{status}]")
+        if total > 5:
+            lines.append(f"...and {total - 5} more.")
+        return "\n".join(lines)
+    except Exception:
+        return None
     """Format upcoming bookings without LLM."""
     try:
         import json as _json
@@ -328,6 +351,9 @@ def _answer(question: str, tool_result: str, intent: Dict[str, Any]) -> str:
         formatted = _format_schedule(tool_result, intent.get("date"))
     elif kind == "upcoming_query":
         formatted = _format_upcoming(tool_result)
+    elif kind == "customer_query":
+        name = intent.get("name", "That staff member")
+        formatted = _format_staff_bookings(tool_result, name)
 
     if formatted:
         log.info("Deterministic answer for intent=%s", kind)
