@@ -202,12 +202,20 @@ def _format_trends(data: str, question: str) -> Optional[str]:
                 )
 
         # Busiest staff / most bookings
-        if any(w in q for w in ("most bookings", "least bookings", "least appointments", "fewest", "busiest", "busiest staff", "most popular staff", "least amount")):
+        if any(w in q for w in ("most bookings", "busiest", "busiest staff", "most popular staff")):
             if by_staff:
-                top      = next(iter(by_staff))
+                top       = next(iter(by_staff))
                 top_count = by_staff[top]
-                pct      = round(top_count / max(total, 1) * 100, 1)
+                pct       = round(top_count / max(total, 1) * 100, 1)
                 return f"{top} has the most bookings with {top_count} total, representing {pct}% of all appointments."
+
+        # Least busy staff / fewest bookings
+        if any(w in q for w in ("least bookings", "least appointments", "fewest", "lowest", "least amount", "least busy")):
+            if by_staff:
+                bottom       = list(by_staff.keys())[-1]
+                bottom_count = by_staff[bottom]
+                pct          = round(bottom_count / max(total, 1) * 100, 1)
+                return f"{bottom} has the fewest bookings with {bottom_count} total, representing {pct}% of all appointments."
 
         # Most popular service
         if any(w in q for w in ("popular service", "most booked service", "top service")):
