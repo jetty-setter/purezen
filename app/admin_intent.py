@@ -168,6 +168,16 @@ def _regex_classify(message: str) -> Dict[str, Any]:
         "email":     email,
     }
 
+    # trends_query — checked BEFORE staff_query so "busiest staff" / "most bookings" routes here
+    if re.search(
+        r"\bmost\b|\bbusiest\b|\btop\b|\bcancell\b|\bcancel\b|\brate\b"
+        r"|\bpopular\b|\bperform\b|\bstat\b|\btrend\b|\bcount\b|\btotal\b"
+        r"|\bhow many\b|\bmost booked\b|\bleast\b|\bfewest\b|\blowest\b",
+        msg,
+    ):
+        result["intent"] = "trends_query"
+        return result
+
     # staff_query
     if re.search(r"\bstaff\b|\bwho('?s| is) working\b|\broster\b|\bteam\b|\bemployee", msg):
         result["intent"] = "staff_query"
@@ -178,16 +188,6 @@ def _regex_classify(message: str) -> Dict[str, Any]:
         if email or re.search(r"\bhistory\b|\bbooking.{0,10}for\b|\baround\b", msg):
             result["intent"] = "customer_query"
             return result
-
-    # trends_query
-    if re.search(
-        r"\bmost\b|\bbusiest\b|\btop\b|\bcancell\b|\bcancel\b|\brate\b"
-        r"|\bpopular\b|\bperform\b|\bstat\b|\btrend\b|\bcount\b|\btotal\b"
-        r"|\bhow many\b|\bmost booked\b|\bleast\b|\bfewest\b|\blowest\b",
-        msg,
-    ):
-        result["intent"] = "trends_query"
-        return result
 
     # range_query — has both dates or range expression
     if date_from and date_to:
