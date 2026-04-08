@@ -718,25 +718,51 @@ def reschedule_booking(booking_id: str, new_slot_id: str) -> Dict[str, Any]:
     customer_email   = current_booking.get("customer_email")
     special_requests = current_booking.get("special_requests")
 
+    update_expr = (
+        "SET #status = :booked, booking_id = :booking_id, booked_at = :booked_at"
+    )
+    expr_names  = {"#status": "status"}
+    expr_values = {
+        ":booked":     "BOOKED",
+        ":available":  "AVAILABLE",
+        ":booking_id": booking_id,
+        ":booked_at":  datetime.utcnow().isoformat(),
+    }
+    remove_fields = []
+
+    if customer_name:
+        update_expr += ", customer_name = :customer_name"
+        expr_values[":customer_name"] = customer_name
+    else:
+        remove_fields.append("customer_name")
+
+    if customer_phone:
+        update_expr += ", customer_phone = :customer_phone"
+        expr_values[":customer_phone"] = customer_phone
+    else:
+        remove_fields.append("customer_phone")
+
+    if customer_email:
+        update_expr += ", customer_email = :customer_email"
+        expr_values[":customer_email"] = customer_email
+    else:
+        remove_fields.append("customer_email")
+
+    if special_requests:
+        update_expr += ", special_requests = :special_requests"
+        expr_values[":special_requests"] = special_requests
+    else:
+        remove_fields.append("special_requests")
+
+    if remove_fields:
+        update_expr += " REMOVE " + ", ".join(remove_fields)
+
     try:
         table.update_item(
             Key={"slot_id": new_slot_id},
-            UpdateExpression=(
-                "SET #status = :booked, booking_id = :booking_id, booked_at = :booked_at, "
-                "customer_name = :customer_name, customer_phone = :customer_phone, "
-                "customer_email = :customer_email, special_requests = :special_requests"
-            ),
-            ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues={
-                ":booked": "BOOKED",
-                ":available": "AVAILABLE",
-                ":booking_id": booking_id,
-                ":booked_at": datetime.utcnow().isoformat(),
-                ":customer_name": customer_name or "",
-                ":customer_phone": customer_phone or "",
-                ":customer_email": customer_email or "",
-                ":special_requests": special_requests or "",
-            },
+            UpdateExpression=update_expr,
+            ExpressionAttributeNames=expr_names,
+            ExpressionAttributeValues=expr_values,
             ConditionExpression="#status = :available",
         )
     except Exception as exc:
