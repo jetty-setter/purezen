@@ -166,7 +166,19 @@ def _regex_classify(message: str) -> Dict[str, Any]:
         "date_from": date_from,
         "date_to":   date_to,
         "email":     email,
+        "name":      None,  # extracted person name for staff/customer lookup
     }
+
+    # Extract a capitalized name from the message for name-based lookups
+    # e.g. "Show me Sophia's history" → "Sophia"
+    name_match = re.search(r"\b([A-Z][a-z]{1,20})(?:'s)?\b", message)
+    if name_match:
+        candidate = name_match.group(1)
+        # Exclude common non-name words
+        _SKIP = {"Show", "Get", "Find", "What", "Who", "How", "When", "List",
+                 "Today", "This", "Last", "Next", "Most", "All", "Any"}
+        if candidate not in _SKIP:
+            result["name"] = candidate
 
     # trends_query — checked BEFORE staff_query so "busiest staff" / "most bookings" routes here
     if re.search(
