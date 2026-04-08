@@ -252,9 +252,19 @@ def _format_schedule(data: str, date: Optional[str]) -> Optional[str]:
         upcoming  = [b for b in bookings if b.get("status") == "Upcoming"]
         completed = [b for b in bookings if b.get("status") == "Completed"]
         cancelled = [b for b in bookings if b.get("status") == "Cancelled"]
+        active    = upcoming + completed  # exclude cancelled from summary
 
-        total = len(bookings)
-        parts = [f"There are {total} appointment{'s' if total != 1 else ''} on {date_label}"]
+        if not active and cancelled:
+            return (
+                f"All {len(cancelled)} appointment{'s' if len(cancelled) != 1 else ''} "
+                f"on {date_label} have been cancelled. No active bookings remain."
+            )
+
+        if not active:
+            return f"There are no active bookings on {date_label}."
+
+        total = len(active)
+        parts = [f"There are {total} active appointment{'s' if total != 1 else ''} on {date_label}"]
         if upcoming:
             parts.append(f"{len(upcoming)} upcoming")
         if completed:
@@ -262,7 +272,7 @@ def _format_schedule(data: str, date: Optional[str]) -> Optional[str]:
         if cancelled:
             parts.append(f"{len(cancelled)} cancelled")
 
-        staff = list({b.get("staff_name") for b in bookings if b.get("staff_name")})
+        staff = list({b.get("staff_name") for b in active if b.get("staff_name")})
         if staff:
             parts.append(f"Staff on duty: {', '.join(sorted(staff))}")
 
