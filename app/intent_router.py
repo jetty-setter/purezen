@@ -25,17 +25,17 @@ _SERVICE_ALIASES: list[tuple[str, str]] = [
     (r"couples",              "Couples Massage"),
     (r"aroma\s*therap\w*",    "Aromatherapy Add-On"),
     (r"aromatherapy",         "Aromatherapy Add-On"),
-    (r"massage",              "Massage"),
+    (r"massage",              "Swedish Massage"),       # generic → default Swedish
     (r"hydrat\w*\s*deluxe",   "Hydrating Deluxe Facial"),
     (r"hydrat\w*\s*facial",   "Hydrating Deluxe Facial"),
     (r"luminous",             "Hydrating Deluxe Facial"),
     (r"anti.?aging\s*facial", "Anti-Aging Facial"),
     (r"acne\s*facial",        "Acne Facial"),
     (r"classic\s*facial",     "Classic Facial"),
-    (r"facial",               "Facial"),
+    (r"facial",               "Classic Facial"),       # generic → default Classic Facial
     (r"sea\s*salt",           "Sea Salt Body Scrub"),
     (r"body\s*scrub|scrub",   "Sea Salt Body Scrub"),
-    (r"wrap",                 "Body Wrap"),
+    (r"body\s*wrap|wrap",     "Sea Salt Body Scrub"),  # no wrap service — closest match
 ]
 
 _MONTH_MAP = {
@@ -125,6 +125,20 @@ def _extract_date(message: str) -> Optional[str]:
     iso = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", message)
     if iso:
         return iso.group(1)
+
+    # Month-only: "in July", "July", "next July" — return 1st of that month
+    # (or today if we're already in it)
+    for month_name, month_num in _MONTH_MAP.items():
+        if re.search(rf"\b{month_name}\b", message, re.IGNORECASE):
+            year = today.year
+            if month_num < today.month:
+                year += 1  # already passed this year
+            try:
+                if month_num == today.month and year == today.year:
+                    return today.strftime("%Y-%m-%d")  # already in this month
+                return today.replace(year=year, month=month_num, day=1).strftime("%Y-%m-%d")
+            except ValueError:
+                pass
 
     return None
 
