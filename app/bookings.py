@@ -114,6 +114,16 @@ def _extract_ordinal_index(message: str) -> Optional[int]:
 
 def _extract_name(message: str) -> Optional[str]:
     text = (message or "").strip()
+
+    # Reject obvious non-names immediately
+    _NON_NAMES = {
+        "none", "no", "nope", "yes", "yeah", "ok", "okay", "sure",
+        "fine", "good", "great", "next", "skip", "cancel", "stop",
+        "done", "continue", "back", "help", "thanks", "thank you",
+    }
+    if text.lower().strip() in _NON_NAMES:
+        return None
+
     patterns = [
         r"(?i)\bmy name is\s+([A-Za-z][A-Za-z\s'\-]{1,60})$",
         r"(?i)\bi am\s+([A-Za-z][A-Za-z\s'\-]{1,60})$",
@@ -124,11 +134,15 @@ def _extract_name(message: str) -> Optional[str]:
         match = re.search(pattern, text)
         if match:
             name = " ".join(match.group(1).strip().split())
-            return " ".join(part.capitalize() for part in name.split())
+            candidate = " ".join(part.capitalize() for part in name.split())
+            if candidate.lower() not in _NON_NAMES:
+                return candidate
 
     cleaned = " ".join(text.split())
     if re.fullmatch(r"[A-Za-z][A-Za-z\s'\-]{1,60}", cleaned):
-        return " ".join(part.capitalize() for part in cleaned.split())
+        candidate = " ".join(part.capitalize() for part in cleaned.split())
+        if candidate.lower() not in _NON_NAMES:
+            return candidate
 
     return None
 
