@@ -21,12 +21,13 @@ def build_intent_prompt(message: str) -> str:
 Output ONLY a single JSON object. No markdown. No code fences. No explanation. No extra keys.
 
 INTENT VALUES (pick exactly one):
-- service_question   → asking what services, facials, or massages exist or are offered
-- availability_check → asking about open times, availability, "do you have", "when can I"
-- booking_request    → wants to book, reserve, schedule, confirm, or mentions a specific time like "9am"
-- cancel_request     → wants to cancel a booking or appointment
-- reschedule_request → wants to reschedule, move, or change an appointment
-- general_question   → anything else
+- service_question      → asking what services, facials, or massages exist or are offered
+- availability_check    → asking about open times, availability, "do you have", "when can I"
+- booking_request       → wants to book, reserve, schedule, confirm, or mentions a specific time like "9am"
+- cancel_request        → wants to cancel a booking or appointment
+- reschedule_request    → wants to reschedule, move, or change an appointment
+- recommendation_request → describing how they feel, a mood, a symptom, or asking what's best for them. Examples: "I feel stressed", "my back hurts", "I need to relax", "what would you recommend", "I've never been to a spa", "I want to treat myself", "I had a long week"
+- general_question      → anything else
 
 EXTRACTION RULES:
 - service_name: normalize to title case. "deep tissue" → "Deep Tissue Massage", "swedish" → "Swedish Massage", "facial" → "Facial". null if not mentioned.
