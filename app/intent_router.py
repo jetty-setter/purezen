@@ -186,16 +186,20 @@ def _regex_fallback(message: str) -> Dict[str, Any]:
         "any openings", "what times", "when can", "open slots",
     )
     # Phrases that are pure questions about what exists — NOT booking requests
+    # Only match these when NO specific service has been extracted
     _SERVICE_QUESTION_PHRASES = (
         "what facials", "what massages", "what services", "what do you offer",
         "what treatments", "show me services", "list services",
         "facials do you", "massages do you", "services do you",
-        "tell me about", "what can i get", "what do you have",
-        "do you offer", "do you do", "do you have", "do you provide",
-        "do you carry", "is there a", "do you sell",
+        "what can i get", "what do you have",
+        "do you offer", "do you do", "do you provide",
+        "do you carry", "do you sell",
         "what kind", "what type", "what sort",
-        "tell me more", "more info", "more information",
-        "how much", "how long", "what is", "what's",
+    )
+    # These only trigger service_question when NO specific service is mentioned
+    _GENERIC_INFO_PHRASES = (
+        "tell me about", "tell me more", "more info", "more information",
+        "how much", "how long", "what is", "what's", "is there a", "do you have",
     )
 
     # Intent — ordered most-specific first
@@ -209,25 +213,30 @@ def _regex_fallback(message: str) -> Dict[str, Any]:
         result["intent"] = "booking_request"
 
     elif any(p in msg for p in _SERVICE_QUESTION_PHRASES):
-        # Pure question — even if a service name was extracted
+        # Pure "what services exist" questions — always show full list
         result["intent"] = "service_question"
 
+    elif any(p in msg for p in _GENERIC_INFO_PHRASES):
+        if result["service_name"]:
+            # "tell me about hot stone massage" → service_question WITH service_name set
+            # orchestrator will use service_name to show targeted info
+            result["intent"] = "service_question"
+        else:
+            # No service mentioned → show full list
+            result["intent"] = "service_question"
+
     elif any(w in msg for w in _AVAIL_WORDS):
-        # Explicit availability question with no booking verb
         if result["service_name"] and result["date"]:
             result["intent"] = "availability_check"
         elif result["service_name"]:
-            # "available for massage?" — need a date
             result["intent"] = "availability_check"
         else:
             result["intent"] = "service_question"
 
     elif result["service_name"] and result["date"]:
-        # Service + date with no other signal → booking request
         result["intent"] = "booking_request"
 
     elif result["service_name"]:
-        # Service name alone, no date, no booking verb → service question
         result["intent"] = "service_question"
 
     return result
