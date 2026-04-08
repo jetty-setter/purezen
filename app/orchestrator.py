@@ -497,6 +497,56 @@ def _try_start_intake(
 
 
 # ---------------------------------------------------------------------------
+# LLM-powered recommendation handler
+# ---------------------------------------------------------------------------
+
+def _build_recommendation_prompt(message: str, services: List[Dict[str, Any]], user_name: Optional[str]) -> str:
+    service_list = "\n".join(
+        f"- {_service_name(s)}: {s.get('description', '')} ({s.get('duration_minutes', '?')} min, ${int(s.get('price', 0))})"
+        for s in services if _service_name(s)
+    )
+    name_line = f"The guest's name is {user_name.split()[0]}. " if user_name else ""
+    return (
+        f"You are a warm, knowledgeable spa concierge at PureZen Spa & Wellness. "
+        f"{name_line}"
+        f"A guest said: \"{message}\"\n\n"
+        f"Our available services:\n{service_list}\n\n"
+        "Based on what the guest described, recommend the single most appropriate service. "
+        "Be warm, empathetic, and specific — reference what they said and explain why this service suits them. "
+        "Keep it to 3-4 sentences. End by asking if they'd like to book it and what date works for them. "
+        "Do not list multiple services. Do not use bullet points. Do not mention prices unless asked."
+    )
+
+
+def _handle_recommendation(
+    message: str,
+    msg: str,
+    session_id: str,
+    user_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    from app.llm import call_ollama
+    services = _all_services()
+    if not services:
+        return _response(
+            "I'd love to help find the right treatment for you. Could you tell me a little more about what you're looking for?",
+            session_id,
+        )
+    prompt = _build_recommendation_prompt(message, services, user_name)
+    try:
+        response = call_ollama(prompt)
+        if response and len(response.strip()) > 20:
+            return _response(response.strip(), session_id)
+    except Exception as exc:
+        log.warning("_handle_recommendation LLM failed: %s", exc)
+
+    # Fallback if LLM fails
+    return _response(
+        "I'd love to help you find the perfect treatment. Could you tell me a little more about how you're feeling or what you're hoping to get out of your visit?",
+        session_id,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Intent handlers
 # ---------------------------------------------------------------------------
 
@@ -698,65 +748,7 @@ def handle_chat(
             session_id,
         )
 
-    # ── 6b. Wellness / symptom-based queries ─────────────────────────────
-    _WELLNESS_TRIGGERS = {
-        "tense": "Hot Stone Massage",
-        "tension": "Hot Stone Massage",
-        "stress": "Hot Stone Massage",
-        "stressed": "Hot Stone Massage",
-        "anxious": "Hot Stone Massage",
-        "anxiety": "Hot Stone Massage",
-        "can't sleep": "Hot Stone Massage",
-        "cannot sleep": "Hot Stone Massage",
-        "can't relax": "Swedish Massage",
-        "cannot relax": "Swedish Massage",
-        "sore": "Deep Tissue Massage",
-        "sore muscles": "Deep Tissue Massage",
-        "muscle pain": "Deep Tissue Massage",
-        "back pain": "Deep Tissue Massage",
-        "tired": "Swedish Massage",
-        "exhausted": "Swedish Massage",
-        "worn out": "Swedish Massage",
-        "burned out": "Swedish Massage",
-        "burnt out": "Swedish Massage",
-        "overwhelmed": "Hot Stone Massage",
-        "pregnant": "Prenatal Massage",
-        "pregnancy": "Prenatal Massage",
-        "skin": "Classic Facial",
-        "glow": "Hydrating Deluxe Facial",
-        "dry skin": "Hydrating Deluxe Facial",
-        "relax": "Swedish Massage",
-        "unwind": "Swedish Massage",
-        "detox": "Sea Salt Body Scrub",
-        "exfoliate": "Sea Salt Body Scrub",
-    }
-    for trigger, recommended in _WELLNESS_TRIGGERS.items():
-        if trigger in msg:
-            # Find the service in the catalog
-            svc = next(
-                (s for s in _all_services()
-                 if recommended.lower() in _service_name(s).lower()),
-                None
-            )
-            if svc:
-                name     = _service_name(svc)
-                duration = svc.get("duration_minutes")
-                price    = svc.get("price")
-                desc     = svc.get("description", "")
-                details  = []
-                if duration: details.append(f"{duration} min")
-                if price is not None:
-                    try: details.append(f"${int(price)}")
-                    except: pass
-                detail_str = " · ".join(details)
-                lines = [
-                    f"It sounds like you could use some deep relaxation. I'd recommend our {name}.",
-                    f"{detail_str}" if detail_str else "",
-                    f"{desc}" if desc else "",
-                    f"\nWould you like to book a {name}? Just let me know a date and I'll find available times.",
-                ]
-                return _response("\n".join(l for l in lines if l), session_id)
-            break
+    # ── 6b. Booking history ────────────────────────────────────────────────
     history_triggers = (
         "my bookings", "my appointments", "my history", "show my",
         "what have i booked", "upcoming appointments", "past appointments",
@@ -793,6 +785,9 @@ def handle_chat(
 
     if detected == "reschedule_request":
         return _begin_reschedule(session_id, message)
+
+    if detected == "recommendation_request":
+        return _handle_recommendation(message, msg, session_id, user_name)
 
     # ── 8. Graceful fallback ──────────────────────────────────────────────
     name_part = f", {user_name.split()[0]}" if is_logged_in and user_name else ""
