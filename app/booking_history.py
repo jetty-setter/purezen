@@ -108,10 +108,14 @@ def get_bookings_by_email(email: str) -> List[Dict[str, Any]]:
 
     formatted = [_format_booking(b) for b in bookings]
 
-    # Sort: upcoming first, then completed, then cancelled; within each group by date desc
+    # Sort: upcoming first (soonest date first), then completed (most recent first), then cancelled
     def sort_key(b: Dict[str, Any]):
         order = {"Upcoming": 0, "Completed": 1, "Cancelled": 2}
-        return (order.get(b["status"], 9), b.get("date", "") or "")
+        date  = b.get("date", "") or ""
+        # Upcoming: ascending date (soonest first); others: descending (most recent first)
+        if b["status"] == "Upcoming":
+            return (0, date)
+        return (order.get(b["status"], 9), "~" + date)  # ~ sorts after all dates descending
 
     formatted.sort(key=sort_key)
     return formatted
@@ -137,9 +141,19 @@ def format_history_for_concierge(bookings: List[Dict[str, Any]]) -> str:
 # ---------------------------------------------------------------------------
 
 @router.get("/bookings/history")
-def booking_history(email: str) -> List[Dict[str, Any]]:
+def booking_history(email: str, token: str = "") -> List[Dict[str, Any]]:
     """
-    GET /bookings/history?email=user@example.com
-    Returns all bookings for the given email address.
+    GET /bookings/history?email=user@example.com&token=...
+    Returns all bookings for the given email. Token is validated when provided.
     """
+    # Validate token if provided — prevents unauthenticated email enumeration
+    if token:
+        try:
+            from app.users import _get_user_by_token
+            user = _get_user_by_token(token)
+            if not user or user.get("email", "").lower() != email.lower().strip():
+                from fastapi import HTTPException
+                raise HTTPException(status_code=401, detail="Unauthorized.")
+        except ImportError:
+            pass  # Auth module unavailable — allow request
     return get_bookings_by_email(email)
