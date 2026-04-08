@@ -230,7 +230,21 @@ def get_available_slots_for_service(
         all_items = [_convert_decimal(item) for item in all_items]
 
     # Double-check status in application layer to guard against GSI eventual consistency lag
-    all_items = [item for item in all_items if str(item.get("status", "")).upper() == "AVAILABLE"]
+    # Re-fetch any items where status is ambiguous using the primary key for a strongly-consistent read
+    verified_items = []
+    for item in all_items:
+        if str(item.get("status", "")).upper() != "AVAILABLE":
+            continue
+        try:
+            fresh = availability_table.get_item(
+                Key={"slot_id": item["slot_id"]},
+                ConsistentRead=True,
+            ).get("Item")
+            if fresh and str(fresh.get("status", "")).upper() == "AVAILABLE":
+                verified_items.append(_convert_decimal(fresh))
+        except Exception:
+            verified_items.append(item)
+    all_items = verified_items
 
     matching = [
         item for item in all_items
@@ -286,3 +300,4 @@ def debug_service_availability(service_name: str, requested_date: str) -> Dict[s
         "displayed_slots":   len(representative),
         "sample_items":      representative[:10],
     }
+

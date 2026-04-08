@@ -183,7 +183,7 @@ def _regex_classify(message: str) -> Dict[str, Any]:
     if re.search(
         r"\bmost\b|\bbusiest\b|\btop\b|\bcancell\b|\bcancel\b|\brate\b"
         r"|\bpopular\b|\bperform\b|\bstat\b|\btrend\b|\bcount\b|\btotal\b"
-        r"|\bhow many\b|\bmost booked\b",
+        r"|\bhow many\b|\bmost booked\b|\bleast\b|\bfewest\b|\blowest\b",
         msg,
     ):
         result["intent"] = "trends_query"

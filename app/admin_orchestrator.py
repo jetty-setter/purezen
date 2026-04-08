@@ -202,7 +202,7 @@ def _format_trends(data: str, question: str) -> Optional[str]:
                 )
 
         # Busiest staff / most bookings
-        if any(w in q for w in ("most bookings", "busiest", "busiest staff", "most popular staff")):
+        if any(w in q for w in ("most bookings", "least bookings", "least appointments", "fewest", "busiest", "busiest staff", "most popular staff", "least amount")):
             if by_staff:
                 top      = next(iter(by_staff))
                 top_count = by_staff[top]

@@ -195,20 +195,12 @@ def _format_service_list(msg: str, specific_service: str = None) -> str:
 
     # If a specific service was extracted, describe just that one
     if specific_service:
-        spec_lower = specific_service.lower()
-        # Exact match
         for svc in services:
-            if _service_name(svc).lower() == spec_lower:
+            if _service_name(svc).lower() == specific_service.lower():
                 return _describe_service(svc)
-        # Service name contains the query
+        # Partial match
         for svc in services:
-            if spec_lower in _service_name(svc).lower():
-                return _describe_service(svc)
-        # Query contains a word from the service name (fuzzy)
-        spec_words = set(spec_lower.split())
-        for svc in services:
-            svc_words = set(_service_name(svc).lower().split())
-            if len(spec_words & svc_words) >= 1 and spec_words & svc_words - {"massage","facial","body"}:
+            if specific_service.lower() in _service_name(svc).lower():
                 return _describe_service(svc)
 
     # Otherwise filter by category keyword and list

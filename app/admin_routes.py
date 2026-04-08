@@ -282,6 +282,38 @@ def staff_login(request: StaffLoginRequest) -> Dict[str, Any]:
     return {"success": True, "token": token, "name": display, "role": "staff"}
 
 
+@router.post("/logout")
+def admin_logout(token: str) -> Dict[str, Any]:
+    """Invalidate an admin or staff session token in DynamoDB."""
+    try:
+        # Check admins table
+        items = admins_table.scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
+        if items:
+            admins_table.update_item(
+                Key={"admin_id": items[0]["admin_id"]},
+                UpdateExpression="SET #t = :t",
+                ExpressionAttributeNames={"#t": "token"},
+                ExpressionAttributeValues={":t": ""},
+            )
+            return {"success": True, "message": "Logged out."}
+
+        # Check staff table
+        items2 = staff_table.scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
+        if items2:
+            staff_table.update_item(
+                Key={"staff_id": items2[0]["staff_id"]},
+                UpdateExpression="SET #t = :t",
+                ExpressionAttributeNames={"#t": "token"},
+                ExpressionAttributeValues={":t": ""},
+            )
+            return {"success": True, "message": "Logged out."}
+
+        return {"success": True, "message": "Token not found, already logged out."}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+
 @router.get("/me")
 def get_me(token: str) -> Dict[str, Any]:
     session = _verify_any_token(token)
