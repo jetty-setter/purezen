@@ -169,16 +169,16 @@ def _regex_classify(message: str) -> Dict[str, Any]:
         "name":      None,  # extracted person name for staff/customer lookup
     }
 
-    # Extract a capitalized name from the message for name-based lookups
-    # e.g. "Show me Sophia's history" → "Sophia"
-    name_match = re.search(r"\b([A-Z][a-z]{1,20})(?:'s)?\b", message)
-    if name_match:
-        candidate = name_match.group(1)
-        # Exclude common non-name words
-        _SKIP = {"Show", "Get", "Find", "What", "Who", "How", "When", "List",
-                 "Today", "This", "Last", "Next", "Most", "All", "Any"}
-        if candidate not in _SKIP:
-            result["name"] = candidate
+    # Extract a person's name — skip common leading verbs/words
+    _SKIP_WORDS = {
+        "Show", "Get", "Find", "What", "Who", "How", "When", "List",
+        "Today", "This", "Last", "Next", "Most", "All", "Any", "Give",
+        "Tell", "Pull", "Fetch", "Look", "Check", "Display", "Search",
+        "Me", "My", "Our", "The", "For", "From",
+    }
+    name_candidates = re.findall(r"\b([A-Z][a-z]{1,20})(?:'s)?\b", message)
+    extracted_name = next((c for c in name_candidates if c not in _SKIP_WORDS), None)
+    result["name"] = extracted_name
 
     # trends_query — checked BEFORE staff_query so "busiest staff" / "most bookings" routes here
     if re.search(
