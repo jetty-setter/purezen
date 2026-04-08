@@ -139,8 +139,12 @@ def _route(intent: Dict[str, Any], data_fns: Dict[str, Callable]) -> str:
         return execute_tool("get_trends", params, data_fns)
 
     elif kind == "customer_query":
+        name  = intent.get("name")
         if email:
-            return execute_tool("get_customer_history", {"email": email}, data_fns)
+            return execute_tool("get_customer_history", {"query": email}, data_fns)
+        if name:
+            # Try staff bookings first — "Show me Sophia's history" is likely about staff
+            return execute_tool("get_staff_bookings", {"name": name}, data_fns)
         return execute_tool("get_all_bookings", {}, data_fns)
 
     elif kind == "upcoming_query":
