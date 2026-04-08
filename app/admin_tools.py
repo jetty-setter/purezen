@@ -45,8 +45,13 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name":        "get_customer_history",
-        "description": "Get booking history for a customer by email.",
-        "parameters":  {"email": "customer email address"},
+        "description": "Get booking history for a customer by name or email.",
+        "parameters":  {"query": "customer name or email address"},
+    },
+    {
+        "name":        "get_staff_bookings",
+        "description": "Get all bookings assigned to a specific staff member by name. Use when asked about a staff member's schedule, appointments, or history.",
+        "parameters":  {"name": "staff member name or first name"},
     },
     {
         "name":        "get_trends",
@@ -102,9 +107,28 @@ def execute_tool(name: str, params: dict, data_fns: Dict[str, Any]) -> str:
             } for s in items if s.get("is_active", True)])
 
         if name == "get_customer_history":
-            email = params.get("email", "").lower().strip()
-            bks   = [b for b in get_all_bookings()
-                     if (b.get("customer_email") or "").lower() == email]
+            query = params.get("query", params.get("email", "")).lower().strip()
+            if not query:
+                return json.dumps([])
+            bks = [
+                b for b in get_all_bookings()
+                if query in (b.get("customer_email") or "").lower()
+                or query in (b.get("customer_name") or "").lower()
+                # Also match first name only e.g. "sofia" matches "Sofia N."
+                or any(query == part.lower() for part in (b.get("customer_name") or "").split())
+            ]
+            return json.dumps(bks[:25])
+
+        if name == "get_staff_bookings":
+            query = params.get("name", "").lower().strip()
+            if not query:
+                return json.dumps([])
+            bks = [
+                b for b in get_all_bookings()
+                if query in (b.get("staff_name") or "").lower()
+                or any(query == part.lower() for part in (b.get("staff_name") or "").split())
+            ]
+            bks.sort(key=lambda b: b.get("date", ""))
             return json.dumps(bks[:25])
 
         if name == "get_trends":
