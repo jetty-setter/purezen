@@ -698,7 +698,65 @@ def handle_chat(
             session_id,
         )
 
-    # ── 6. Booking history ────────────────────────────────────────────────
+    # ── 6b. Wellness / symptom-based queries ─────────────────────────────
+    _WELLNESS_TRIGGERS = {
+        "tense": "Hot Stone Massage",
+        "tension": "Hot Stone Massage",
+        "stress": "Hot Stone Massage",
+        "stressed": "Hot Stone Massage",
+        "anxious": "Hot Stone Massage",
+        "anxiety": "Hot Stone Massage",
+        "can't sleep": "Hot Stone Massage",
+        "cannot sleep": "Hot Stone Massage",
+        "can't relax": "Swedish Massage",
+        "cannot relax": "Swedish Massage",
+        "sore": "Deep Tissue Massage",
+        "sore muscles": "Deep Tissue Massage",
+        "muscle pain": "Deep Tissue Massage",
+        "back pain": "Deep Tissue Massage",
+        "tired": "Swedish Massage",
+        "exhausted": "Swedish Massage",
+        "worn out": "Swedish Massage",
+        "burned out": "Swedish Massage",
+        "burnt out": "Swedish Massage",
+        "overwhelmed": "Hot Stone Massage",
+        "pregnant": "Prenatal Massage",
+        "pregnancy": "Prenatal Massage",
+        "skin": "Classic Facial",
+        "glow": "Hydrating Deluxe Facial",
+        "dry skin": "Hydrating Deluxe Facial",
+        "relax": "Swedish Massage",
+        "unwind": "Swedish Massage",
+        "detox": "Sea Salt Body Scrub",
+        "exfoliate": "Sea Salt Body Scrub",
+    }
+    for trigger, recommended in _WELLNESS_TRIGGERS.items():
+        if trigger in msg:
+            # Find the service in the catalog
+            svc = next(
+                (s for s in _all_services()
+                 if recommended.lower() in _service_name(s).lower()),
+                None
+            )
+            if svc:
+                name     = _service_name(svc)
+                duration = svc.get("duration_minutes")
+                price    = svc.get("price")
+                desc     = svc.get("description", "")
+                details  = []
+                if duration: details.append(f"{duration} min")
+                if price is not None:
+                    try: details.append(f"${int(price)}")
+                    except: pass
+                detail_str = " · ".join(details)
+                lines = [
+                    f"It sounds like you could use some deep relaxation. I'd recommend our {name}.",
+                    f"{detail_str}" if detail_str else "",
+                    f"{desc}" if desc else "",
+                    f"\nWould you like to book a {name}? Just let me know a date and I'll find available times.",
+                ]
+                return _response("\n".join(l for l in lines if l), session_id)
+            break
     history_triggers = (
         "my bookings", "my appointments", "my history", "show my",
         "what have i booked", "upcoming appointments", "past appointments",
