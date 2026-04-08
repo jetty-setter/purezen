@@ -501,8 +501,19 @@ def _try_start_intake(
 # ---------------------------------------------------------------------------
 
 def _handle_service_question(msg: str, session_id: str, service_name: Optional[str] = None) -> Dict[str, Any]:
-    # If a specific service was mentioned, describe just that one
-    if service_name:
+    # Only show a single service if the message asks about a SPECIFIC named service
+    # Category questions like "what massages do you have" should still show the full list
+    _CATEGORY_WORDS = ("massage", "facial", "scrub", "wrap", "aroma", "treatment", "service", "services")
+    _SPECIFIC_TRIGGERS = ("tell me about", "what is", "what's", "how much", "how long",
+                          "tell me more", "more info", "more about", "describe")
+
+    is_specific = (
+        service_name
+        and any(t in msg for t in _SPECIFIC_TRIGGERS)
+        and service_name.lower() not in _CATEGORY_WORDS
+    )
+
+    if is_specific:
         svcs = _all_services()
         for svc in svcs:
             name = _service_name(svc)
@@ -516,11 +527,12 @@ def _handle_service_question(msg: str, session_id: str, service_name: Optional[s
                     try: details.append(f"${int(price)}")
                     except: pass
                 detail_str = " · ".join(details)
-                lines = [f"{name}"]
+                lines = [name]
                 if detail_str: lines.append(detail_str)
                 if desc: lines.append(desc)
                 lines.append(f"\nWould you like to book a {name}?")
                 return _response("\n".join(lines), session_id)
+
     return _response(_format_service_list(msg), session_id)
 
 
