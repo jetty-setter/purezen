@@ -202,6 +202,21 @@ def _regex_fallback(message: str) -> Dict[str, Any]:
         "how much", "how long", "what is", "what's", "is there a", "do you have",
     )
 
+    _RECOMMENDATION_PHRASES = (
+        "what would you recommend", "what do you recommend", "recommend",
+        "what's best for", "what is best for", "not sure what",
+        "never been", "first time", "treat myself", "treat yourself",
+        "feel tense", "feel stressed", "feel anxious", "feel tired",
+        "feel sore", "feeling stressed", "feeling tense", "feeling tired",
+        "i feel", "i've been", "i have been", "my back", "my shoulders",
+        "my neck", "my muscles", "long week", "hard week", "rough week",
+        "need to relax", "need to unwind", "help me relax", "help me choose",
+        "can't sleep", "cannot sleep", "can't relax", "cannot relax",
+        "what's good for", "what is good for", "good for stress",
+        "good for anxiety", "good for sore", "good for tired",
+        "looking for something", "something relaxing", "something rejuvenating",
+    )
+
     # Intent — ordered most-specific first
     if any(w in msg for w in _RESCHEDULE_PHRASES):
         result["intent"] = "reschedule_request"
@@ -212,23 +227,17 @@ def _regex_fallback(message: str) -> Dict[str, Any]:
     elif result["start_time"] or any(w in msg for w in _BOOK_VERBS):
         result["intent"] = "booking_request"
 
+    elif any(p in msg for p in _RECOMMENDATION_PHRASES):
+        result["intent"] = "recommendation_request"
+
     elif any(p in msg for p in _SERVICE_QUESTION_PHRASES):
-        # Pure "what services exist" questions — always show full list
         result["intent"] = "service_question"
 
     elif any(p in msg for p in _GENERIC_INFO_PHRASES):
-        if result["service_name"]:
-            # "tell me about hot stone massage" → service_question WITH service_name set
-            # orchestrator will use service_name to show targeted info
-            result["intent"] = "service_question"
-        else:
-            # No service mentioned → show full list
-            result["intent"] = "service_question"
+        result["intent"] = "service_question"
 
     elif any(w in msg for w in _AVAIL_WORDS):
-        if result["service_name"] and result["date"]:
-            result["intent"] = "availability_check"
-        elif result["service_name"]:
+        if result["service_name"]:
             result["intent"] = "availability_check"
         else:
             result["intent"] = "service_question"
@@ -289,8 +298,17 @@ def detect_intent(message: str) -> Dict[str, Any]:
                 "services do you have", "massages do you have", "facials do you have",
                 "what can i get", "tell me about your", "show me your services",
             ]
+            recommendation_signals = [
+                "i feel", "i'm feeling", "feeling", "i have", "my back", "my shoulders",
+                "my neck", "my muscles", "recommend", "what's best", "what is best",
+                "never been", "first time", "treat myself", "long week", "hard week",
+                "stressed", "anxious", "tired", "sore", "tense", "can't sleep",
+                "cannot sleep", "what should i", "surprise me", "not sure",
+            ]
             if any(s in msg_lower for s in service_question_signals):
                 parsed["intent"] = "service_question"
+            elif any(s in msg_lower for s in recommendation_signals):
+                parsed["intent"] = "recommendation_request"
 
             result = {
                 "intent":         parsed.get("intent", "unknown"),
