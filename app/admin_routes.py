@@ -3,6 +3,8 @@ from __future__ import annotations
 import csv
 import io
 import logging
+import time
+import time
 import uuid
 from collections import Counter
 from datetime import datetime, timedelta
@@ -26,6 +28,7 @@ log = logging.getLogger(__name__)
 ADMINS_TABLE = "purezen_admins"
 USERS_TABLE  = "purezen_users"
 STAFF_TABLE  = "purezen_staff"
+TOKEN_TTL_SECS = 86400  # 24 hours
 
 router = APIRouter(prefix="/admin")
 
@@ -257,8 +260,9 @@ def admin_login(request: AdminLoginRequest) -> Dict[str, Any]:
     admin = items[0]
     if not bcrypt.checkpw(request.password.encode(), admin["password_hash"].encode()):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
-    token = uuid.uuid4().hex
-    admins_table.update_item(Key={"admin_id": admin["admin_id"]}, UpdateExpression="SET #t = :t", ExpressionAttributeNames={"#t": "token"}, ExpressionAttributeValues={":t": token})
+    token   = uuid.uuid4().hex
+    expires = int(time.time()) + TOKEN_TTL_SECS
+    admins_table.update_item(Key={"admin_id": admin["admin_id"]}, UpdateExpression="SET #t = :t, token_expires_at = :e", ExpressionAttributeNames={"#t": "token"}, ExpressionAttributeValues={":t": token, ":e": expires})
     return {"success": True, "token": token, "name": admin.get("name"), "email": email}
 
 
@@ -276,8 +280,9 @@ def staff_login(request: StaffLoginRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=401, detail="No password set. Contact an administrator.")
     if not bcrypt.checkpw(request.password.encode(), pw_hash.encode()):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
-    token = uuid.uuid4().hex
-    staff_table.update_item(Key={"staff_id": staff["staff_id"]}, UpdateExpression="SET #t = :t", ExpressionAttributeNames={"#t": "token"}, ExpressionAttributeValues={":t": token})
+    token   = uuid.uuid4().hex
+    expires = int(time.time()) + TOKEN_TTL_SECS
+    staff_table.update_item(Key={"staff_id": staff["staff_id"]}, UpdateExpression="SET #t = :t, token_expires_at = :e", ExpressionAttributeNames={"#t": "token"}, ExpressionAttributeValues={":t": token, ":e": expires})
     display = staff.get("display_name") or f"{staff.get('first_name','')} {staff.get('last_name','')}".strip()
     return {"success": True, "token": token, "name": display, "role": "staff"}
 
