@@ -21,6 +21,12 @@ from app.scheduling import format_slots_for_response, get_available_slots_for_se
 from app.services import list_services
 
 try:
+    from app.chat_sessions import append_exchange
+    _CHAT_SESSIONS_ENABLED = True
+except Exception as _e:
+    _CHAT_SESSIONS_ENABLED = False
+
+try:
     from app.booking_history import get_bookings_by_email, format_history_for_concierge
 except Exception:
     get_bookings_by_email = None
@@ -272,11 +278,17 @@ def _extract_time_of_day(msg: str) -> Optional[str]:
 
 
 def _time_to_minutes(t: str) -> Optional[int]:
-    """Convert '9 AM', '9:00AM', '10:30 PM' etc. to minutes since midnight."""
-    t = re.sub(r"\s+", "", t).upper()
+    """Convert time strings to minutes since midnight. Handles 12hr and 24hr."""
+    t_clean = re.sub(r"\s+", "", t).upper()
     for fmt in ("%I:%M%p", "%I%p"):
         try:
-            p = datetime.strptime(t, fmt)
+            p = datetime.strptime(t_clean, fmt)
+            return p.hour * 60 + p.minute
+        except ValueError:
+            continue
+    for fmt in ("%H:%M", "%H"):
+        try:
+            p = datetime.strptime(t.strip(), fmt)
             return p.hour * 60 + p.minute
         except ValueError:
             continue
@@ -370,6 +382,7 @@ def _present_slots(
 
     try:
         save_presented_slots(session_id, slots, service_name)
+        log.warning("PRESENTED SLOTS: %s", [(s.get("start_time"), s.get("staff_name")) for s in slots])
     except Exception as exc:
         log.warning("save_presented_slots error: %s", exc)
 
@@ -423,11 +436,20 @@ def _try_start_intake(
                 selected_slot = slots[idx]
             break
 
-    # 2. Bare digit: "1" through "8"
-    if not selected_slot and re.fullmatch(r"[1-8]", message.strip()):
-        idx = int(message.strip()) - 1
-        if idx < len(slots):
-            selected_slot = slots[idx]
+    # 2. Bare digit: "2" means 2:00 PM — match by hour
+    if not selected_slot and re.fullmatch(r"[1-9]", message.strip()):
+        hour = int(message.strip())
+        # Try PM first (spa hours), then AM
+        for offset in (12, 0):
+            h = hour + offset if hour != 12 else hour
+            target = h * 60
+            for slot in slots:
+                slot_min = _time_to_minutes(str(slot.get("start_time", "")))
+                if slot_min is not None and slot_min == target:
+                    selected_slot = slot
+                    break
+            if selected_slot:
+                break
 
     # 3. Time string with AM/PM: "9 AM", "9:00 AM", "9am", "10:30pm"
     if not selected_slot:
@@ -451,6 +473,21 @@ def _try_start_intake(
                     if req_norm in slot_norm or slot_norm.startswith(req_norm):
                         selected_slot = slot
                         break
+
+    # 3b. Compact time: "1245" → 12:45, "900" → 9:00
+    if not selected_slot:
+        compact_m = re.fullmatch(r"(\d{1,2})(\d{2})", message.strip())
+        if compact_m:
+            h, m = int(compact_m.group(1)), int(compact_m.group(2))
+            for offset in (0, 12):
+                target = ((h + offset) if h != 12 else h) * 60 + m
+                for slot in slots:
+                    slot_min = _time_to_minutes(str(slot.get("start_time", "")))
+                    if slot_min is not None and slot_min == target:
+                        selected_slot = slot
+                        break
+                if selected_slot:
+                    break
 
     # 4. Bare hour number: "9", "10" (no AM/PM) — try AM first for spa hours
     if not selected_slot:
@@ -517,6 +554,78 @@ def _build_recommendation_prompt(message: str, services: List[Dict[str, Any]], u
         "Do not list multiple services. Do not use bullet points. Do not mention prices unless asked."
     )
 
+
+def _handle_comparison(
+    message: str,
+    msg: str,
+    session_id: str,
+    user_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    from app.llm import call_ollama
+    services = _all_services()
+    service_list = "\n".join(
+        f"- {_service_name(s)}: {s.get('description', '')} ({s.get('duration_minutes', '?')} min, ${int(s.get('price', 0))})"
+        for s in services if _service_name(s)
+    )
+    name_line = f"The guest's name is {user_name.split()[0]}. " if user_name else ""
+    prompt = (
+        f"You are a knowledgeable spa concierge at PureZen Spa & Wellness. "
+        f"{name_line}"
+        f"A guest asked: \"{message}\"\n\n"
+        f"Our services:\n{service_list}\n\n"
+        "Answer their question directly and helpfully. If they are comparing two services, "
+        "explain the key differences clearly in 3-4 sentences. Be warm but informative. "
+        "End by asking which sounds right for them or if they'd like to book one."
+    )
+    try:
+        from app.llm import call_ollama
+        response = call_ollama(prompt)
+        if response and len(response.strip()) > 20:
+            return _response(response.strip(), session_id)
+    except Exception as exc:
+        log.warning("_handle_comparison LLM failed: %s", exc)
+    return _response(
+        "Swedish Massage uses gentle, flowing strokes to promote relaxation and is ideal for stress relief. "
+        "Deep Tissue targets deeper muscle layers with more pressure, suited for chronic tension or soreness. "
+        "Which sounds right for you?",
+        session_id
+    )
+
+def _handle_comparison(
+    message: str,
+    msg: str,
+    session_id: str,
+    user_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    from app.llm import call_ollama
+    services = _all_services()
+    service_list = "\n".join(
+        f"- {_service_name(s)}: {s.get('description', '')} ({s.get('duration_minutes', '?')} min, ${int(s.get('price', 0))})"
+        for s in services if _service_name(s)
+    )
+    name_line = f"The guest's name is {user_name.split()[0]}. " if user_name else ""
+    prompt = (
+        f"You are a knowledgeable spa concierge at PureZen Spa & Wellness. "
+        f"{name_line}"
+        f"A guest asked: \"{message}\"\n\n"
+        f"Our services:\n{service_list}\n\n"
+        "Answer their question directly and helpfully. If they are comparing two services, "
+        "explain the key differences clearly in 3-4 sentences. Be warm but informative. "
+        "End by asking which sounds right for them or if they'd like to book one."
+    )
+    try:
+        from app.llm import call_ollama
+        response = call_ollama(prompt)
+        if response and len(response.strip()) > 20:
+            return _response(response.strip(), session_id)
+    except Exception as exc:
+        log.warning("_handle_comparison LLM failed: %s", exc)
+    return _response(
+        "Swedish Massage uses gentle, flowing strokes to promote relaxation and is ideal for stress relief. "
+        "Deep Tissue targets deeper muscle layers with more pressure, suited for chronic tension or soreness. "
+        "Which sounds right for you?",
+        session_id
+    )
 
 def _handle_recommendation(
     message: str,
@@ -606,6 +715,33 @@ def _handle_booking(intent: Dict[str, Any], msg: str, session_id: str) -> Dict[s
     service_name = _resolve_service(intent, msg)
     if not service_name:
         return _response("What service would you like to book?", session_id)
+
+    # Generic category — ask which specific service
+    if service_name == "MASSAGE_CLARIFY":
+        state = get_session_state(session_id)
+        state["pending_booking_date"] = intent.get("date")
+        state["awaiting_service_clarification"] = "massage"
+        return _response(
+            "We have several massage options:\n"
+            "- Swedish Massage ($120)\n"
+            "- Deep Tissue Massage ($145)\n"
+            "- Hot Stone Massage ($170)\n"
+            "- Prenatal Massage ($135)\n\n"
+            "Which would you like to book?",
+            session_id
+        )
+    if service_name == "FACIAL_CLARIFY":
+        state = get_session_state(session_id)
+        state["pending_booking_date"] = intent.get("date")
+        state["awaiting_service_clarification"] = "facial"
+        return _response(
+            "We offer two facial treatments:\n"
+            "- Classic Facial ($110)\n"
+            "- Hydrating Deluxe Facial ($165)\n\n"
+            "Which would you like?",
+            session_id
+        )
+
     date = intent.get("date")
     if not date:
         _set_pending_service(session_id, service_name)
@@ -620,7 +756,7 @@ def _handle_booking(intent: Dict[str, Any], msg: str, session_id: str) -> Dict[s
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def handle_chat(
+def _handle_chat_inner(
     message: str,
     session_id: str = "default",
     context: Optional[Dict[str, Any]] = None,
@@ -645,6 +781,34 @@ def handle_chat(
         state["user_token"] = user_token
 
     flow = _active_flow(state)
+    # ── 0. Service clarification follow-up ───────────────────────────────
+    if state.get("awaiting_service_clarification"):
+        category = state.get("awaiting_service_clarification")
+        resolved = _resolve_service({"service_name": message}, message)
+        if resolved and resolved not in ("MASSAGE_CLARIFY", "FACIAL_CLARIFY"):
+            state.pop("awaiting_service_clarification", None)
+            saved_date = state.pop("pending_booking_date", None)
+            if saved_date:
+                return _present_slots(resolved, saved_date, _extract_time_of_day(msg), session_id)
+            else:
+                _set_pending_service(session_id, resolved)
+                return _response(
+                    f"What date would you like to book your {resolved}?",
+                    session_id
+                )
+        else:
+            if category == "massage":
+                return _response(
+                    "Please choose one of our massage options:\n"
+                    "- Swedish Massage\n- Deep Tissue Massage\n- Hot Stone Massage\n- Prenatal Massage",
+                    session_id
+                )
+            else:
+                return _response(
+                    "Please choose one of our facial options:\n"
+                    "- Classic Facial\n- Hydrating Deluxe Facial",
+                    session_id
+                )
 
     # ── 1. Active booking intake ──────────────────────────────────────────
     if _booking_active(state):
@@ -772,7 +936,15 @@ def handle_chat(
     )
 
     if detected == "service_question":
-        return _handle_service_question(msg, session_id, intent.get("service_name"))
+        comparative_patterns = [
+            "difference between", "differ", "compare", "vs ", "versus",
+            "better for", "which is better", "which one", "what's the difference",
+            "whats the difference"
+        ]
+        if any(p in msg for p in comparative_patterns):
+            detected = "general"
+        else:
+            return _handle_service_question(msg, session_id, intent.get("service_name"))
 
     if detected == "availability_check":
         return _handle_availability(intent, msg, session_id)
@@ -789,10 +961,42 @@ def handle_chat(
     if detected == "recommendation_request":
         return _handle_recommendation(message, msg, session_id, user_name)
 
-    # ── 8. Graceful fallback ──────────────────────────────────────────────
+    # ── 8. General/comparative — route to LLM ────────────────────────────
+    if detected == "general":
+        comparative_patterns = [
+            "difference between", "differ", "compare", "vs ", "versus",
+            "better for", "which is better", "which one", "what's the difference",
+            "whats the difference"
+        ]
+        if any(p in msg for p in comparative_patterns):
+            return _handle_comparison(message, msg, session_id, user_name)
+        return _handle_recommendation(message, msg, session_id, user_name)
+
+    # ── 9. Graceful fallback ──────────────────────────────────────────────
     name_part = f", {user_name.split()[0]}" if is_logged_in and user_name else ""
     return _response(
         f"I'm here to help{name_part}. I can explore services, check availability, "
         "book an appointment, reschedule, or cancel a booking. What can I do for you?",
         session_id,
     )
+
+
+def handle_chat(
+    message: str,
+    session_id: str = "default",
+    context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Public entry point — persists to chat_sessions after handling."""
+    result = _handle_chat_inner(message, session_id, context)
+    if _CHAT_SESSIONS_ENABLED:
+        try:
+            user_email = (context or {}).get("user_email")
+            append_exchange(
+                session_id=session_id,
+                user_message=message,
+                assistant_response=result.get("response", ""),
+                user_email=user_email,
+            )
+        except Exception as exc:
+            log.warning("chat_sessions persist failed: %s", exc)
+    return result

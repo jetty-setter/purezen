@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PureZen – My Account</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sand:         #f7f3ef;
+      --card:         #eae4de;
+      --white:        #ffffff;
+      --heading:      #1f1a18;
+      --charcoal:     #2b2624;
+      --charcoal-soft:#6b625d;
+      --muted:        #9e9189;
+      --eucalyptus:   #7b9487;
+      --eucalyptus-deep: #5f786c;
+      --rose:         #c7a8a3;
+      --rose-deep:    #a07870;
+      --danger:       #c0392b;
+      --radius:       1rem;
+    }
+
+    body {
+      font-family: 'Manrope', sans-serif;
+      background: var(--sand);
+      color: var(--charcoal);
+      min-height: 100vh;
+    }
+
+    /* ── Layout ── */
+    .auth-page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    /* ── Left panel ── */
+    .auth-left {
+      position: relative;
+      background: linear-gradient(160deg, #5e5c57 0%, #72706a 50%, #838180 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 3rem;
+      overflow: hidden;
+    }
+
+    .auth-left::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 20%, rgba(199,168,163,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 80%, rgba(123,148,135,0.15) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .auth-left-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .auth-left-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--rose), var(--eucalyptus));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 1rem;
+      color: #fff;
+      letter-spacing: 0.02em;
+      flex-shrink: 0;
+    }
+
+    .auth-left-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .auth-left-sub {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+    }
+
+    .auth-left-copy {
+      position: relative;
+      z-index: 1;
+    }
+
+    .auth-left-eyebrow {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--rose);
+      margin-bottom: 1.25rem;
+    }
+
+    .auth-left-heading {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 3vw, 2.8rem);
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.15;
+      margin-bottom: 1.5rem;
+    }
+
+    .auth-left-heading em {
+      font-style: italic;
+      color: var(--rose);
+    }
+
+    .auth-left-points {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .auth-left-points li {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.7);
+    }
+
+    .auth-left-points li::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--eucalyptus);
+      flex-shrink: 0;
+    }
+
+    /* ── Right panel ── */
+    .auth-right {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+      overflow-y: auto;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .auth-card-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .auth-card-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--heading);
+      margin-bottom: 0.4rem;
+    }
+
+    .auth-card-sub {
+      font-size: 0.875rem;
+      color: var(--charcoal-soft);
+    }
+
+    /* ── Tabs ── */
+    .auth-tabs {
+      display: flex;
+      background: var(--card);
+      border-radius: 0.75rem;
+      padding: 4px;
+      margin-bottom: 1.75rem;
+      gap: 4px;
+    }
+
+    .auth-tab {
+      flex: 1;
+      background: none;
+      border: none;
+      padding: 0.6rem 1rem;
+      font-family: 'Manrope', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--charcoal-soft);
+      cursor: pointer;
+      border-radius: 0.6rem;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .auth-tab.active {
+      background: var(--white);
+      color: var(--heading);
+      box-shadow: 0 1px 4px rgba(43,38,36,0.1);
+    }
+
+    /* ── Forms ── */
+    .auth-form {
+      display: none;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .auth-form.active { display: flex; }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .form-group label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--charcoal);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .form-group input {
+      padding: 0.8rem 1rem;
+      border: 1.5px solid rgba(43,38,36,0.1);
+      border-radius: 0.65rem;
+      font-family: 'Manrope', sans-serif;
+      font-size: 0.95rem;
+      background: var(--white);
+      color: var(--charcoal);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+      width: 100%;
+    }
+
+    .form-group input:focus {
+      border-color: var(--eucalyptus);
+      box-shadow: 0 0 0 3px rgba(123,148,135,0.12);
+    }
+
+    .auth-submit {
+      margin-top: 0.25rem;
+      padding: 0.9rem;
+      background: linear-gradient(135deg, var(--eucalyptus-deep), var(--eucalyptus));
+      color: #fff;
+      border: none;
+      border-radius: 0.65rem;
+      font-family: 'Manrope', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      letter-spacing: 0.02em;
+    }
+
+    .auth-submit:hover { opacity: 0.9; transform: translateY(-1px); }
+    .auth-submit:active { transform: translateY(0); }
+    .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* ── Messages ── */
+    .auth-message {
+      padding: 0.75rem 1rem;
+      border-radius: 0.65rem;
+      font-size: 0.875rem;
+      display: none;
+      font-weight: 500;
+    }
+
+    .auth-message.error   { background: #fde8e8; color: var(--danger); display: block; }
+    .auth-message.success { background: #e8f5f0; color: #2e7d5e; display: block; }
+
+    /* ── Back link ── */
+    .auth-back {
+      display: block;
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.85rem;
+      color: var(--charcoal-soft);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .auth-back:hover { color: var(--eucalyptus); }
+
+    /* ── User panel ── */
+    .auth-user-panel {
+      display: none;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .auth-user-panel.active { display: flex; }
+
+    .user-greeting {
+      text-align: center;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(43,38,36,0.08);
+      margin-bottom: 1.5rem;
+    }
+
+    .user-avatar {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--rose), var(--eucalyptus));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #fff;
+      margin: 0 auto 1rem;
+    }
+
+    .user-greeting h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      color: var(--heading);
+      margin-bottom: 0.25rem;
+    }
+
+    .user-greeting p {
+      font-size: 0.875rem;
+      color: var(--charcoal-soft);
+    }
+
+    .user-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .user-action-btn {
+      display: block;
+      padding: 0.85rem 1.25rem;
+      border-radius: 0.65rem;
+      font-family: 'Manrope', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      border: none;
+    }
+
+    .user-action-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    .user-action-btn.primary {
+      background: linear-gradient(135deg, var(--eucalyptus-deep), var(--eucalyptus));
+      color: #fff;
+    }
+
+    .user-action-btn.ghost {
+      background: var(--card);
+      color: var(--charcoal-soft);
+    }
+
+    .user-action-btn.danger:hover {
+      background: rgba(192,57,43,0.08);
+      color: var(--danger);
+      transform: none;
+    }
+
+    /* ── Booking history ── */
+    .booking-history { width: 100%; }
+
+    .booking-history-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      color: var(--heading);
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(43,38,36,0.08);
+    }
+
+    .booking-item {
+      background: var(--card);
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.65rem;
+      border-left: 3px solid var(--eucalyptus);
+      transition: background 0.2s;
+    }
+
+    .booking-item:hover { background: #e2dbd4; }
+    .booking-item.cancelled { border-left-color: var(--danger); opacity: 0.75; }
+    .booking-item.completed { border-left-color: var(--muted); }
+
+    .booking-service {
+      font-weight: 700;
+      font-size: 0.925rem;
+      color: var(--charcoal);
+      margin-bottom: 0.2rem;
+    }
+
+    .booking-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .booking-status {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0.18rem 0.55rem;
+      border-radius: 999px;
+      margin-top: 0.4rem;
+      background: rgba(123,148,135,0.12);
+      color: var(--eucalyptus);
+    }
+
+    .booking-status.cancelled { background: rgba(192,57,43,0.1); color: var(--danger); }
+    .booking-status.completed { background: rgba(158,145,137,0.15); color: var(--muted); }
+
+    .booking-id {
+      font-size: 0.72rem;
+      color: #b0a89f;
+      margin-top: 0.2rem;
+      font-family: monospace;
+    }
+
+    .history-empty {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.875rem;
+      padding: 1.5rem 0;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .auth-page { grid-template-columns: 1fr; }
+      .auth-left { display: none; }
+      .auth-right { padding: 2rem 1.25rem; justify-content: flex-start; padding-top: 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="auth-page">
+
+    <!-- Left decorative panel -->
+    <div class="auth-left">
+      <div class="auth-left-brand">
+        <div class="auth-left-mark">PZ</div>
+        <div>
+          <div class="auth-left-name">PureZen</div>
+          <div class="auth-left-sub">Spa &amp; Wellness</div>
+        </div>
+      </div>
+
+      <div class="auth-left-copy">
+        <p class="auth-left-eyebrow">Your sanctuary awaits</p>
+        <h2 class="auth-left-heading">
+          Every visit<br />begins with <em>you.</em>
+        </h2>
+        <ul class="auth-left-points">
+          <li>Book and manage appointments anytime</li>
+          <li>View your full appointment history</li>
+          <li>Skip re-entering your details each visit</li>
+          <li>Reschedule or cancel with ease</li>
+        </ul>
+      </div>
+
+      <div style="font-size:0.75rem; color:rgba(255,255,255,0.3); position:relative; z-index:1;">
+        © 2026 PureZen Spa
+      </div>
+    </div>
+
+    <!-- Right form panel -->
+    <div class="auth-right">
+      <div class="auth-card">
+
+        <div class="auth-card-header">
+          <h1 class="auth-card-title">My Account</h1>
+          <p class="auth-card-sub">Sign in or create an account to manage your bookings</p>
+        </div>
+
+        <!-- Logged-in state -->
+        <div id="userPanel" class="auth-user-panel">
+          <div class="user-greeting">
+            <div class="user-avatar" id="userAvatar">PZ</div>
+            <h2 id="welcomeName">Welcome</h2>
+            <p id="welcomeEmail"></p>
+          </div>
+
+          <div class="user-actions">
+            <a href="index.html" class="user-action-btn primary">Go to Concierge</a>
+            <button class="user-action-btn ghost danger" id="logoutBtn">Sign out</button>
+          </div>
+
+          <div class="booking-history" id="bookingHistory">
+            <h3 class="booking-history-title">Your Appointments</h3>
+            <div id="bookingList"></div>
+          </div>
+        </div>
+
+        <!-- Auth forms -->
+        <div id="authForms">
+          <div class="auth-tabs">
+            <button class="auth-tab active" data-tab="login">Sign In</button>
+            <button class="auth-tab" data-tab="register">Create Account</button>
+          </div>
+
+          <div id="authMessage" class="auth-message"></div>
+
+          <!-- Login -->
+          <div id="loginForm" class="auth-form active">
+            <div class="form-group">
+              <label for="loginEmail">Email</label>
+              <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email" />
+            </div>
+            <div class="form-group">
+              <label for="loginPassword">Password</label>
+              <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" />
+            </div>
+            <button class="auth-submit" id="loginBtn">Sign In</button>
+          </div>
+
+          <!-- Register -->
+          <div id="registerForm" class="auth-form">
+            <div class="form-group">
+              <label for="regName">Full Name</label>
+              <input type="text" id="regName" placeholder="Jane Smith" autocomplete="name" />
+            </div>
+            <div class="form-group">
+              <label for="regEmail">Email</label>
+              <input type="email" id="regEmail" placeholder="you@example.com" autocomplete="email" />
+            </div>
+            <div class="form-group">
+              <label for="regPhone">Phone</label>
+              <input type="tel" id="regPhone" placeholder="(402) 555-0100" autocomplete="tel" />
+            </div>
+            <div class="form-group">
+              <label for="regPassword">Password</label>
+              <input type="password" id="regPassword" placeholder="At least 8 characters" autocomplete="new-password" />
+            </div>
+            <button class="auth-submit" id="registerBtn">Create Account</button>
+          </div>
+        </div>
+
+        <a href="index.html" class="auth-back">← Back to PureZen</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    const API = window.PUREZEN_CONFIG.API_BASE_URL;
+
+    // Session helpers
+    function saveSession(token, user) {
+      localStorage.setItem("pz_token", token);
+      localStorage.setItem("pz_user", JSON.stringify(user));
+    }
+
+    function clearSession() {
+      localStorage.removeItem("pz_token");
+      localStorage.removeItem("pz_user");
+    }
+
+    function getSession() {
+      const token = localStorage.getItem("pz_token");
+      const raw   = localStorage.getItem("pz_user");
+      return token && raw ? { token, user: JSON.parse(raw) } : null;
+    }
+
+    // Message helpers
+    function showMessage(text, type = "error") {
+      const el = document.getElementById("authMessage");
+      el.textContent = text;
+      el.className = `auth-message ${type}`;
+    }
+
+    function clearMessage() {
+      const el = document.getElementById("authMessage");
+      el.className = "auth-message";
+      el.textContent = "";
+    }
+
+    // Panel helpers
+    function showUserPanel(user, isNew = false) {
+      document.getElementById("authForms").style.display = "none";
+      document.getElementById("userPanel").classList.add("active");
+
+      const first = user.name.split(" ")[0];
+      document.getElementById("welcomeName").textContent = isNew
+        ? `Welcome, ${first}`
+        : `Welcome, ${first}`;
+      document.getElementById("welcomeEmail").textContent = user.email;
+
+      // Set avatar initials
+      const initials = user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+      document.getElementById("userAvatar").textContent = initials;
+
+      fetchBookingHistory(user.email);
+    }
+
+    function showAuthForms() {
+      document.getElementById("authForms").style.display = "block";
+      document.getElementById("userPanel").classList.remove("active");
+    }
+
+    // Booking history
+    async function fetchBookingHistory(email) {
+      const section     = document.getElementById("bookingHistory");
+      const bookingList = document.getElementById("bookingList");
+
+      section.style.display = "block";
+      bookingList.innerHTML = `<p class="history-empty">Loading your appointments...</p>`;
+
+      try {
+        const res  = await fetch(`${API}/bookings/history?email=${encodeURIComponent(email)}`);
+        const data = await res.json();
+
+        if (!Array.isArray(data) || data.length === 0) {
+          bookingList.innerHTML = `<p class="history-empty">No appointments yet. Ready to book your first?</p>`;
+          return;
+        }
+
+        bookingList.innerHTML = data.map(b => {
+          const sc    = b.status === "Cancelled" ? "cancelled" : b.status === "Completed" ? "completed" : "";
+          const staff = b.staff_name ? ` · ${b.staff_name}` : "";
+          return `
+            <div class="booking-item ${sc}">
+              <p class="booking-service">${b.service_name}</p>
+              <p class="booking-meta">${b.date_display} at ${b.start_time}${staff}</p>
+              <span class="booking-status ${sc}">${b.status}</span>
+              ${b.booking_id ? `<p class="booking-id">${b.booking_id}</p>` : ""}
+            </div>
+          `;
+        }).join("");
+
+      } catch {
+        bookingList.innerHTML = `<p class="history-empty">Couldn't load appointments right now.</p>`;
+      }
+    }
+
+    // Init
+    const session = getSession();
+    if (session) { window.location.href = 'account.html'; }
+
+    // Tab switching
+    document.querySelectorAll(".auth-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".auth-tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".auth-form").forEach(f => f.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(`${tab.dataset.tab}Form`).classList.add("active");
+        clearMessage();
+      });
+    });
+
+    // Login
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const email    = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value;
+
+      if (!email || !password) { showMessage("Please fill in all fields."); return; }
+
+      const btn = document.getElementById("loginBtn");
+      btn.disabled = true;
+      btn.textContent = "Signing in...";
+      clearMessage();
+
+      try {
+        const res  = await fetch(`${API}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) { showMessage(data.detail || "Login failed."); return; }
+
+        saveSession(data.token, data.user);
+        showMessage("Signed in successfully!", "success");
+        setTimeout(() => { window.location.href = "account.html"; }, 800);
+
+      } catch {
+        showMessage("Could not connect to the server.");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Sign In";
+      }
+    });
+
+    // Register
+    document.getElementById("registerBtn").addEventListener("click", async () => {
+      const name     = document.getElementById("regName").value.trim();
+      const email    = document.getElementById("regEmail").value.trim();
+      const phone    = document.getElementById("regPhone").value.trim();
+      const password = document.getElementById("regPassword").value;
+
+      if (!name || !email || !phone || !password) { showMessage("Please fill in all fields."); return; }
+      if (password.length < 8) { showMessage("Password must be at least 8 characters."); return; }
+
+      const btn = document.getElementById("registerBtn");
+      btn.disabled = true;
+      btn.textContent = "Creating account...";
+      clearMessage();
+
+      try {
+        const res  = await fetch(`${API}/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, phone, password }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) { showMessage(data.detail || "Registration failed."); return; }
+
+        saveSession(data.token, data.user);
+        showMessage("Account created!", "success");
+        setTimeout(() => { window.location.href = "account.html"; }, 800);
+
+      } catch {
+        showMessage("Could not connect to the server.");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Create Account";
+      }
+    });
+
+    // Logout
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      clearSession();
+      showAuthForms();
+      clearMessage();
+    });
+  </script>
+</body>
+</html>

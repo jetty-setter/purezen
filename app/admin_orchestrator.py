@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 class OrchestratorConfig:
-    routing_model: str = "llama3.2:3b"   # Intent classification fallback
+    routing_model: str = "qwen2.5:3b"   # Intent classification fallback
     answer_model:  str = "qwen2.5:3b"    # Plain-text answer generation
     timeout:       int = 60
     ollama_url:    str = "http://127.0.0.1:11434"
@@ -196,14 +196,18 @@ def _format_trends(data: str, question: str) -> Optional[str]:
 
         # Cancellation questions
         if any(w in q for w in ("cancel", "cancellation")):
-            if by_service:
-                top_svc  = next(iter(by_service))
-                # Find cancelled by service from raw — use totals as proxy
+            by_svc_cancelled = t.get("by_service_cancelled", {})
+            if by_svc_cancelled:
+                top_svc = next(iter(by_svc_cancelled))
+                top_cnt = by_svc_cancelled[top_svc]
                 return (
-                    f"Based on overall booking data, {top_svc} has the highest booking volume "
-                    f"with a system-wide cancellation rate of {rate}% "
-                    f"({cancelled} of {total + cancelled} total bookings cancelled)."
+                    f"{top_svc} has the most cancellations with {top_cnt} cancelled appointments. "
+                    f"The overall cancellation rate is {rate}% ({cancelled} of {total + cancelled} total bookings)."
                 )
+            return (
+                f"The overall cancellation rate is {rate}% ({cancelled} of {total + cancelled} total bookings). "
+                f"The most booked service is {next(iter(by_service), 'N/A')}."
+            )
 
         # Busiest staff / most bookings
         if any(w in q for w in ("most bookings", "busiest", "busiest staff", "most popular staff")):
@@ -238,7 +242,51 @@ def _format_trends(data: str, question: str) -> Optional[str]:
         return None
 
 
-def _format_schedule(data: str, date: Optional[str]) -> Optional[str]:
+def _find_gaps(bookings, date_label, question=""):
+    """Find time gaps in the schedule."""
+    if not any(w in question.lower() for w in ["gap", "free", "open", "available", "quiet", "slow"]):
+        return None
+    upcoming = [b for b in bookings if b.get("status") == "Upcoming"]
+    if not upcoming:
+        return f"There are no upcoming appointments on {date_label} — the schedule is completely open."
+    
+    # Get booked hours
+    booked_hours = set()
+    for b in upcoming:
+        t = b.get("start_time", "")
+        try:
+            h = int(t.split(":")[0])
+            booked_hours.add(h)
+            booked_hours.add(h+1)  # appointment takes 1 hour
+        except:
+            pass
+    
+    # Spa hours 9-19
+    all_hours = set(range(9, 19))
+    gap_hours = sorted(all_hours - booked_hours)
+    
+    if not gap_hours:
+        return f"The schedule on {date_label} is fully booked with {len(upcoming)} appointments — no gaps available."
+    
+    def fmt_hour(h):
+        suffix = "AM" if h < 12 else "PM"
+        h12 = h % 12 or 12
+        return f"{h12}:00 {suffix}"
+    
+    # Group consecutive hours into ranges
+    ranges = []
+    start = gap_hours[0]
+    prev = gap_hours[0]
+    for h in gap_hours[1:]:
+        if h != prev + 1:
+            ranges.append(f"{fmt_hour(start)}–{fmt_hour(prev+1)}")
+            start = h
+        prev = h
+    ranges.append(f"{fmt_hour(start)}–{fmt_hour(prev+1)}")
+    
+    return f"There are {len(gap_hours)} open hour(s) on {date_label}: {', '.join(ranges)}. These slots have no appointments scheduled and could be filled."
+
+def _format_schedule(data: str, date: Optional[str], question: str = "") -> Optional[str]:
     """Format daily schedule without LLM."""
     try:
         import json as _json
@@ -250,6 +298,9 @@ def _format_schedule(data: str, date: Optional[str]) -> Optional[str]:
         except Exception:
             pass
 
+        gap_result = _find_gaps(bookings, date_label, question)
+        if gap_result:
+            return gap_result
         if not bookings:
             return f"There are no bookings scheduled for {date_label}."
 
@@ -333,7 +384,7 @@ def _format_staff_bookings(data: str, name: str) -> Optional[str]:
 # Answer generation — deterministic first, LLM fallback
 # ---------------------------------------------------------------------------
 
-def _answer(question: str, tool_result: str, intent: Dict[str, Any]) -> str:
+def _answer(question: str, tool_result: str, intent: Dict[str, Any], data_fns: Dict = None) -> str:
     """
     Generate a plain-text answer from tool data.
     Uses deterministic formatters for structured intents — no LLM needed.
@@ -348,7 +399,7 @@ def _answer(question: str, tool_result: str, intent: Dict[str, Any]) -> str:
     elif kind == "trends_query":
         formatted = _format_trends(tool_result, question)
     elif kind == "schedule_query":
-        formatted = _format_schedule(tool_result, intent.get("date"))
+        formatted = _format_schedule(tool_result, intent.get("date"), question)
     elif kind == "upcoming_query":
         formatted = _format_upcoming(tool_result)
     elif kind == "customer_query":
@@ -362,14 +413,33 @@ def _answer(question: str, tool_result: str, intent: Dict[str, Any]) -> str:
     # LLM fallback for general/customer/range queries
     log.info("LLM answer for intent=%s", kind)
     data   = tool_result if len(tool_result) <= 2000 else tool_result[:2000] + "... [truncated]"
-    prompt = (
-        f"Data:\n{data}\n\n"
-        f"Question: {question}\n\n"
-        "Answer in 2-3 sentences. Use only the data above. "
-        "State facts directly. No JSON. No questions. No sign-off."
-    )
-    raw    = _call_llm(prompt, model=_config.answer_model, strict=True)
+    q_lower = question.lower()
+    is_recommendation = any(w in q_lower for w in ["recommend", "focus", "improve", "suggest", "should we", "what should"])
+    if is_recommendation:
+        trends_data = execute_tool("get_trends", {}, data_fns)
+        prompt = (
+            f"PureZen Spa aggregate business data:\n{trends_data}\n\n"
+            f"Question: {question}\n\n"
+            "You are a spa business advisor. Based ONLY on the aggregate metrics above "
+            "(booking volumes, cancellation rates, service popularity, staff performance), "
+            "give one specific actionable business recommendation in 2-3 sentences. "
+            "Focus on operational improvements, service mix, or staffing. "
+            "Do NOT mention any customer names. "
+            "Reference specific numbers from the data. No intro. No sign-off. No questions."
+        )
+        raw = _call_llm(prompt, model=_config.answer_model, strict=False)
+        return raw.strip() or "Unable to generate recommendation."
+        log.warning("RECO RAW LEN=%d: %s", len(raw), raw[:200])
+    else:
+        prompt = (
+            f"Data:\n{data}\n\n"
+            f"Question: {question}\n\n"
+            "Answer in 2-3 sentences. Use only the data above. "
+            "State facts directly. No JSON. No questions. No sign-off."
+        )
+        raw = _call_llm(prompt, model=_config.answer_model, strict=True)
     result = _clean(raw)
+    log.warning("CLEAN RESULT LEN=%d: %s", len(result), result[:200])
     return result or "I could not find a complete answer."
 
 
@@ -406,4 +476,4 @@ def orchestrate(question: str, data_fns: Dict[str, Callable]) -> str:
     )
 
     tool_result = _route(intent, data_fns)
-    return _answer(question, tool_result, intent)
+    return _answer(question, tool_result, intent, data_fns)

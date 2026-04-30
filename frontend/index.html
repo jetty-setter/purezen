@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PureZen Spa & Wellness</title>
+  <meta
+    name="description"
+    content="PureZen Spa offers restorative massage, skin care, and guided wellness experiences in a warm, refined setting."
+  />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="#top" class="brand">
+        <div class="brand-mark">PZ</div>
+        <div class="brand-copy">
+          <span class="brand-name">PureZen</span>
+          <span class="brand-subtitle">Spa & Wellness</span>
+        </div>
+      </a>
+
+      <nav class="desktop-nav" aria-label="Primary navigation">
+        <a href="#experience">Experience</a>
+        <a href="#services">Services</a>
+        <a href="#featured">Featured</a>
+        <a href="#about">About</a>
+        <a href="account.html">My Account</a>
+      </nav>
+
+      <div class="header-actions">
+        <a href="#concierge" class="btn btn-secondary">Concierge</a>
+        <button id="mobileMenuToggle" class="mobile-menu-toggle" aria-label="Open menu" type="button">
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+    </div>
+
+    <div id="mobileNav" class="mobile-nav">
+      <a href="#experience">Experience</a>
+      <a href="#services">Services</a>
+      <a href="#featured">Featured</a>
+      <a href="#about">About</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Luxury wellness, thoughtfully guided</p>
+          <h1>
+            Restore<br />
+            your body.<br />
+            Quiet<br />
+            your mind.<br />
+            Return<br />
+            to yourself.
+          </h1>
+          <p class="hero-text">
+            PureZen blends restorative bodywork, elevated skin care, and a
+            warm, modern spa experience designed to feel effortless from arrival
+            to booking.
+          </p>
+
+          <div class="hero-actions">
+            <a href="#services" class="btn btn-primary">Explore Services</a>
+            <a href="#concierge" class="btn btn-ghost">Book with Concierge</a>
+          </div>
+        </div>
+
+        <div class="hero-visual-wrap">
+          <div class="hero-image-card">
+            <img
+              src="images/hero-spa.jpg"
+              alt="Calming luxury spa interior with warm neutral tones"
+              class="hero-image"
+            />
+          </div>
+
+          <aside class="hero-card">
+            <p class="hero-card-label">Today at PureZen</p>
+            <h2>Find the right treatment in minutes</h2>
+            <ul class="hero-card-list">
+              <li>Browse our services</li>
+              <li>See pricing and session lengths</li>
+              <li>Book through our virtual concierge </li>
+            </ul>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="experience" class="section section-soft">
+      <div class="container">
+        <div class="section-heading narrow">
+          <p class="eyebrow">The PureZen experience</p>
+          <h2>Designed to restore balance and presence in quiet luxury</h2>
+          <p>
+            Every detail is intentional, from the moment you arrive to the final breath before you leave. 
+           Our treatments are designed to calm the mind, restore the body, and create space to simply be.
+          </p>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature-card">
+            <span class="feature-number">01</span>
+            <h3>Personalized Care</h3>
+            <p>
+             Every experience begins with you. We tailor each session to how your body feels in the moment, not just what you book.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <span class="feature-number">02</span>
+            <h3>Effortless Calm</h3>
+            <p>
+              From warm lighting to subtle scent and sound, each element is designed to help you slow down, unplug, and fully settle in.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <span class="feature-number">03</span>
+            <h3>Guided Experience</h3>
+            <p>
+              Not sure what you need? Our concierge is always available to guide you, recommend treatments, and help you ease into the right experience.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="services" class="section">
+      <div class="container">
+        <div class="section-heading services-heading">
+          <div>
+            <p class="eyebrow">Service menu</p>
+            <h2>Explore our treatments</h2>
+            <p>
+              Each treatment is designed to restore balance, elevate your senses, and meet you exactly where you are. Choose a service or allow our concierge to guide you.
+            </p>
+          </div>
+        </div>
+
+        <div id="services-grid" class="services-grid" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="featured" class="section section-soft">
+      <div class="container">
+        <div class="section-heading narrow">
+          <p class="eyebrow">Featured Services</p>
+          <h2>Curated favorites</h2>
+        </div>
+
+        <div class="ritual-grid">
+          <article class="ritual-card">
+            <div class="ritual-image-wrap">
+              <img
+                src="images/ritual-massage.jpg"
+                alt="Massage treatment room with neutral linens and warm lighting"
+                class="ritual-image"
+              />
+            </div>
+            <div class="ritual-content">
+              <h3>Grounding Swedish Massage</h3>
+              <p>
+                A warm, full-body experience designed to ease tension and settle
+                the nervous system.
+              </p>
+            </div>
+          </article>
+
+          <article class="ritual-card">
+            <div class="ritual-image-wrap">
+              <img
+                src="images/ritual-facial.jpg"
+                alt="Luxury skincare treatment setup with soft ivory and champagne tones"
+                class="ritual-image"
+              />
+            </div>
+            <div class="ritual-content">
+              <h3>Luminous Hydrating Facial</h3>
+              <p>
+                A glow-focused facial ritual that restores hydration, softness,
+                and radiance.
+              </p>
+            </div>
+          </article>
+
+          <article class="ritual-card">
+            <div class="ritual-image-wrap">
+              <img
+                src="images/ritual-body.jpg"
+                alt="Spa body treatment setting with stones, towels, and eucalyptus accents"
+                class="ritual-image"
+              />
+            </div>
+            <div class="ritual-content">
+              <h3>Soothing Deep Tissue Massage</h3>
+              <p>
+                Therapeutic bodywork for guests seeking focused pressure and
+                deeper tension relief.
+              </p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="concierge" class="section concierge-section">
+      <div class="container concierge-grid" style="align-items:center;">
+        <div class="section-heading concierge-copy" style="line-height:1.8;">
+          <p class="eyebrow">PureZen Concierge</p>
+          <h2>Guidance, whenever you’re ready</h2>
+          <p>Whether you know exactly what you need or aren’t sure where to begin, your concierge is here to guide you — gently and effortlessly.</p>
+          <p style='margin-top:1rem;'>Ask about treatments, describe how you’re feeling, or simply tell us what you’re looking for — from unwinding after a long week to addressing something specific, we’ll help you find exactly the right experience.</p>
+          <p style='margin-top:1rem;'>From your first question to your confirmed appointment, we’re with you every step of the way.</p>
+
+<ul class="concierge-capabilities" style="display:none;">
+  <li>Recommend treatments based on how you feel</li>
+  <li>Check availability and book your session</li>
+  <li>Reschedule or cancel an existing appointment</li>
+  <li>Answer questions about any of our services</li>
+</ul>
+
+        </div>
+
+        <div class="chat-panel">
+          <div class="chat-header">
+            <div>
+              <p class="chat-title">PureZen Concierge</p>
+              <p class="chat-subtitle">Ask about treatments or reserve a time</p>
+            </div>
+
+            <button id="startOverButton" class="chat-reset-button">
+              Start Over
+            </button>
+
+            <span class="chat-dot"></span>
+          </div>
+
+       <div id="chat-messages" class="chat-messages">
+       </div>
+
+    <div id="promptSuggestions" class="prompt-suggestions"></div>
+
+    <form id="chat-form" class="chat-form">
+      <input
+      id="chat-input"
+      type="text"
+      placeholder="Type your message here"
+      autocomplete="off"
+      />
+    </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="section">
+      <div class="container visit-grid">
+        <div class="visit-image-card">
+          <img
+            src="images/visit-spa.jpg"
+            alt="Elegant spa reception or lounge area with warm natural materials"
+            class="visit-image"
+          />
+        </div>
+
+        <div class="visit-card">
+          <p class="eyebrow">About us</p>
+          <h2>Where calm begins</h2>
+          <p>
+            PureZen Spa is designed as a retreat from the pace of the day. Use
+            the concierge for availability, then arrive ready to settle in.
+          </p>
+        </div>
+
+        <div class="visit-card">
+          <h3>Hours</h3>
+          <p><b>Monday - Friday</b></p>
+          <p>9:00 AM to 7:00 PM</p>
+          <br> 
+          <p><b>Saturday - Sunday</b></p>
+          <p>9:00 AM to 5:00 PM</p>
+        </div>
+
+        <div class="visit-card">
+          <h3>Contact</h3>
+          <p><b>Phone</b></p>
+          <p>(402) 369-ZEN1</p>
+          <br>
+          <p><b>Email</b></p>
+          <p><a href="mailto:info@purezen.com">info@purezen.com</a></p>
+          <br>
+          <p><b>Address</b></p>
+          <p> 1234 Farnam St</p>
+          <p>Omaha, Nebraska 68102</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>© 2026 PureZen Spa. All rights reserved.</p>
+      <a href="#top" class="text-link">      <a href="#top" class="text-link">Back to top</a>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="api.js"></script>
+  <script src="script.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

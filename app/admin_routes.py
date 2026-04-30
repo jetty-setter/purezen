@@ -258,7 +258,7 @@ def admin_login(request: AdminLoginRequest) -> Dict[str, Any]:
     if not items:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     admin = items[0]
-    if not bcrypt.checkpw(request.password.encode(), admin["password_hash"].encode()):
+    if not bcrypt.checkpw(request.password.encode(), (admin.get("password_hash") or admin.get("password", "")).encode()):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     token   = uuid.uuid4().hex
     expires = int(time.time()) + TOKEN_TTL_SECS
@@ -384,7 +384,12 @@ def get_trends(token: str, date_from: Optional[str] = None, date_to: Optional[st
     for b in today_booked:
         t = b.get("start_time", "")
         if t:
-            try: hour_counts[datetime.strptime(t.strip().upper(), "%I:%M %p").hour] += 1
+            try:
+                t_clean = t.strip().upper()
+                if "AM" in t_clean or "PM" in t_clean:
+                    hour_counts[datetime.strptime(t_clean, "%I:%M %p").hour] += 1
+                else:
+                    hour_counts[int(t_clean.split(":")[0])] += 1
             except Exception: pass
     peak_hour = None
     if hour_counts:
@@ -394,6 +399,7 @@ def get_trends(token: str, date_from: Optional[str] = None, date_to: Optional[st
         "total_bookings": len(booked), "total_cancelled": len(cancelled),
         "cancellation_rate": round(len(cancelled) / max(len(bookings), 1) * 100, 1),
         "by_service": dict(Counter(b.get("service_name", "Unknown") for b in booked).most_common()),
+        "by_service_cancelled": dict(Counter(b.get("service_name", "Unknown") for b in cancelled).most_common()),
         "by_staff":   dict(Counter(b.get("staff_name", "Unassigned") for b in booked).most_common()),
         "daily_bookings": daily, "weekly_forward": weekly, "peak_hour": peak_hour,
     }

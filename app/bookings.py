@@ -38,6 +38,14 @@ def _normalize_time(value: str) -> str:
     text = _normalize_text(value).upper().replace(".", "")
     text = re.sub(r"\s+", " ", text)
 
+    # Handle 24hr format (e.g. "14:00") -> convert to 12hr
+    match_24 = re.fullmatch(r"(\d{1,2}):(\d{2})", text)
+    if match_24:
+        h, m = int(match_24.group(1)), match_24.group(2)
+        suffix = "AM" if h < 12 else "PM"
+        h12 = h % 12 or 12
+        return f"{h12}:{m} {suffix}"
+
     for fmt in ("%I:%M %p", "%I %p"):
         try:
             parsed = datetime.strptime(text, fmt)
@@ -227,6 +235,15 @@ def _find_slot_from_last_presented(session_id: str, message: str) -> Optional[Di
         return None
 
     msg = message.strip()
+    # Treat bare hour digit as time: "2" -> "2:00 PM", "11" -> "11:00 AM"
+    bare_hour = re.fullmatch(r"(\d{1,2})", msg)
+    if bare_hour:
+        h = int(bare_hour.group(1))
+        if 1 <= h <= 12:
+            suffix = "PM" if h < 9 else ("AM" if h >= 9 and h < 12 else "PM")
+            # Default PM for afternoon (assume spa hours 9am-6pm, ambiguous -> PM)
+            suffix = "AM" if h >= 9 and h <= 11 else "PM"
+            msg = f"{h}:00 {suffix}"
     compact = re.fullmatch(r"(\d{1,2})(\d{2})", msg)
     if compact:
         h, m = int(compact.group(1)), compact.group(2)
@@ -240,8 +257,16 @@ def _find_slot_from_last_presented(session_id: str, message: str) -> Optional[Di
     ordinal_index = _extract_ordinal_index(msg)
     normalized = _normalize_text(msg)
 
-    if ordinal_index is not None and 0 <= ordinal_index < len(slots):
-        return slots[ordinal_index]
+    if ordinal_index is not None and not re.fullmatch(r"\d{1,2}", msg.strip()):
+        def _sort_key(s):
+            try:
+                h, m = s.get("start_time","00:00").split(":")
+                return (s.get("date",""), int(h)*60+int(m))
+            except:
+                return (s.get("date",""), 0)
+        sorted_slots = sorted(slots, key=_sort_key)
+        if 0 <= ordinal_index < len(sorted_slots):
+            return sorted_slots[ordinal_index]
 
     if any(phrase in normalized for phrase in ("that one", "that time", "that slot")):
         if len(slots) == 1:
@@ -273,6 +298,15 @@ def _find_slot_from_last_reschedule_options(session_id: str, message: str) -> Op
         return None
 
     msg = message.strip()
+    # Treat bare hour digit as time: "2" -> "2:00 PM", "11" -> "11:00 AM"
+    bare_hour = re.fullmatch(r"(\d{1,2})", msg)
+    if bare_hour:
+        h = int(bare_hour.group(1))
+        if 1 <= h <= 12:
+            suffix = "PM" if h < 9 else ("AM" if h >= 9 and h < 12 else "PM")
+            # Default PM for afternoon (assume spa hours 9am-6pm, ambiguous -> PM)
+            suffix = "AM" if h >= 9 and h <= 11 else "PM"
+            msg = f"{h}:00 {suffix}"
     compact = re.fullmatch(r"(\d{1,2})(\d{2})", msg)
     if compact:
         h, m = int(compact.group(1)), compact.group(2)
@@ -286,8 +320,16 @@ def _find_slot_from_last_reschedule_options(session_id: str, message: str) -> Op
     ordinal_index = _extract_ordinal_index(msg)
     normalized = _normalize_text(msg)
 
-    if ordinal_index is not None and 0 <= ordinal_index < len(slots):
-        return slots[ordinal_index]
+    if ordinal_index is not None and not re.fullmatch(r"\d{1,2}", msg.strip()):
+        def _sort_key(s):
+            try:
+                h, m = s.get("start_time","00:00").split(":")
+                return (s.get("date",""), int(h)*60+int(m))
+            except:
+                return (s.get("date",""), 0)
+        sorted_slots = sorted(slots, key=_sort_key)
+        if 0 <= ordinal_index < len(sorted_slots):
+            return sorted_slots[ordinal_index]
 
     if any(phrase in normalized for phrase in ("that one", "that time", "that slot")):
         if len(slots) == 1:
@@ -381,7 +423,7 @@ def begin_booking_intake(
 
     service  = service_name or slot.get("service_name", "your service")
     date_text = _format_display_date(str(slot.get("date", "")))
-    time_text = slot.get("start_time", "your selected time")
+    time_text = _to_12hr(str(slot.get("start_time", "your selected time")))
 
     # Build opening message based on what we already know
     intro = (
@@ -616,22 +658,29 @@ def book_slot(
         slot_date  = slot.get("date")
         start_time = slot.get("start_time")
         if staff_id and slot_date and start_time:
-            scan_resp = table.scan(
-                FilterExpression=(
+            siblings = []
+            scan_kwargs = {
+                "FilterExpression": (
                     Attr("staff_id").eq(staff_id) &
                     Attr("date").eq(slot_date) &
-                    Attr("start_time").eq(start_time) &
-                    Attr("status").eq("AVAILABLE")
+                    Attr("start_time").eq(start_time)
                 )
-            )
-            for other in scan_resp.get("Items", []):
+            }
+            while True:
+                scan_resp = table.scan(**scan_kwargs)
+                siblings += scan_resp.get("Items", [])
+                if "LastEvaluatedKey" not in scan_resp:
+                    break
+                scan_kwargs["ExclusiveStartKey"] = scan_resp["LastEvaluatedKey"]
+            for other in siblings:
                 if str(other["slot_id"]) != slot_id:
-                    table.update_item(
-                        Key={"slot_id": other["slot_id"]},
-                        UpdateExpression="SET #status = :unavailable",
-                        ExpressionAttributeNames={"#status": "status"},
-                        ExpressionAttributeValues={":unavailable": "UNAVAILABLE"},
-                    )
+                    if str(other.get("status", "")).upper() not in ("BOOKED",):
+                        table.update_item(
+                            Key={"slot_id": other["slot_id"]},
+                            UpdateExpression="SET #status = :unavailable",
+                            ExpressionAttributeNames={"#status": "status"},
+                            ExpressionAttributeValues={":unavailable": "UNAVAILABLE"},
+                        )
     except Exception as exc:
         log.warning("book_slot: failed to mark sibling slots unavailable: %s", exc)
 
@@ -895,7 +944,7 @@ def begin_reschedule_flow(session_id: str, message: str) -> Dict[str, Any]:
 
     service_name = booking.get("service_name", "your service")
     date_text    = _format_display_date(str(booking.get("date", "")))
-    time_text    = booking.get("start_time", "your current time")
+    time_text    = _to_12hr(str(booking.get("start_time", "your current time")))
 
     return {
         "success": True,
@@ -953,10 +1002,26 @@ def finalize_reschedule_from_message(session_id: str, message: str) -> Dict[str,
 # Confirmation formatters
 # ---------------------------------------------------------------------------
 
+def _to_12hr(t: str) -> str:
+    try:
+        h, m = t.split(":")
+        hr = int(h)
+        return f"{hr % 12 or 12}:{m} {'AM' if hr < 12 else 'PM'}"
+    except Exception:
+        return t
+
+def _to_12hr(t: str) -> str:
+    try:
+        h, m = t.split(":")
+        hr = int(h)
+        return f"{hr % 12 or 12}:{m} {'AM' if hr < 12 else 'PM'}"
+    except Exception:
+        return t
+
 def format_booking_confirmation(slot: Dict[str, Any]) -> str:
     service_name     = slot.get("service_name", "your service")
     date_text        = _format_display_date(str(slot.get("date", "")))
-    time_text        = slot.get("start_time", "your selected time")
+    time_text        = _to_12hr(str(slot.get("start_time", "your selected time")))
     staff_name       = slot.get("staff_name")
     customer_name    = slot.get("customer_name")
     customer_phone   = slot.get("customer_phone")
@@ -987,7 +1052,7 @@ def format_booking_confirmation(slot: Dict[str, Any]) -> str:
 def format_cancellation_confirmation(slot: Dict[str, Any]) -> str:
     service_name   = slot.get("service_name", "your service")
     date_text      = _format_display_date(str(slot.get("date", "")))
-    time_text      = slot.get("start_time", "your selected time")
+    time_text      = _to_12hr(str(slot.get("start_time", "your selected time")))
     staff_name     = slot.get("staff_name")
     customer_name  = slot.get("customer_name")
     customer_email = slot.get("customer_email")
@@ -1009,7 +1074,7 @@ def format_cancellation_confirmation(slot: Dict[str, Any]) -> str:
 def format_reschedule_confirmation(slot: Dict[str, Any]) -> str:
     service_name   = slot.get("service_name", "your service")
     date_text      = _format_display_date(str(slot.get("date", "")))
-    time_text      = slot.get("start_time", "your selected time")
+    time_text      = _to_12hr(str(slot.get("start_time", "your selected time")))
     staff_name     = slot.get("staff_name")
     customer_name  = slot.get("customer_name")
     customer_email = slot.get("customer_email")

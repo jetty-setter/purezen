@@ -209,6 +209,8 @@ def main():
             service = random.choices(offered, weights=weights, k=1)[0]
         else:
             service = slot.get("service_name") or "Swedish Massage"
+        if service == "Aromatherapy Add-On":
+            service = "Swedish Massage"
         slot["_booked_service"] = service
 
         # Pick a customer not already booked on this date

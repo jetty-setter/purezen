@@ -25,14 +25,14 @@ _SERVICE_ALIASES: list[tuple[str, str]] = [
     (r"couples",              "Couples Massage"),
     (r"aroma\s*therap\w*",    "Aromatherapy Add-On"),
     (r"aromatherapy",         "Aromatherapy Add-On"),
-    (r"massage",              "Swedish Massage"),       # generic → default Swedish
+    (r"massage",              "MASSAGE_CLARIFY"),       # generic → ask which massage
     (r"hydrat\w*\s*deluxe",   "Hydrating Deluxe Facial"),
     (r"hydrat\w*\s*facial",   "Hydrating Deluxe Facial"),
     (r"luminous",             "Hydrating Deluxe Facial"),
     (r"anti.?aging\s*facial", "Anti-Aging Facial"),
     (r"acne\s*facial",        "Acne Facial"),
     (r"classic\s*facial",     "Classic Facial"),
-    (r"facial",               "Classic Facial"),       # generic → default Classic Facial
+    (r"facial",               "FACIAL_CLARIFY"),       # generic → ask which facial
     (r"sea\s*salt",           "Sea Salt Body Scrub"),
     (r"body\s*scrub|scrub",   "Sea Salt Body Scrub"),
     (r"body\s*wrap|wrap",     "Sea Salt Body Scrub"),  # no wrap service — closest match
@@ -75,7 +75,8 @@ def _extract_service(message: str) -> Optional[str]:
 
 
 def _extract_date(message: str) -> Optional[str]:
-    today = datetime.now().date()
+    import zoneinfo
+    today = datetime.now(zoneinfo.ZoneInfo("America/Chicago")).date()
 
     if re.search(r"\btoday\b", message, re.IGNORECASE):
         return today.strftime("%Y-%m-%d")
@@ -92,6 +93,21 @@ def _extract_date(message: str) -> Optional[str]:
                 days_ahead = 7
             return (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
 
+    # "March 15" or "15 March"
+    for month_name, month_num in _MONTH_MAP.items():
+        m = re.search(
+            rf"\b{month_name}\s+(\d{{1,2}})(?:st|nd|rd|th)?\b|\b(\d{{1,2}})(?:st|nd|rd|th)?\s+{month_name}\b",
+            message, re.IGNORECASE,
+        )
+        if m:
+            day = int(m.group(1) or m.group(2))
+            try:
+                candidate = today.replace(month=month_num, day=day)
+                if candidate < today:
+                    candidate = candidate.replace(year=today.year + 1)
+                return candidate.strftime("%Y-%m-%d")
+            except ValueError:
+                pass
     ordinal = re.search(r"\b(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)\b", message, re.IGNORECASE)
     if ordinal:
         day = int(ordinal.group(1))
@@ -105,21 +121,6 @@ def _extract_date(message: str) -> Optional[str]:
         except ValueError:
             pass
 
-    # "March 15" or "15 March"
-    for month_name, month_num in _MONTH_MAP.items():
-        m = re.search(
-            rf"\b{month_name}\s+(\d{{1,2}})\b|\b(\d{{1,2}})\s+{month_name}\b",
-            message, re.IGNORECASE,
-        )
-        if m:
-            day = int(m.group(1) or m.group(2))
-            try:
-                candidate = today.replace(month=month_num, day=day)
-                if candidate < today:
-                    candidate = candidate.replace(year=today.year + 1)
-                return candidate.strftime("%Y-%m-%d")
-            except ValueError:
-                pass
 
     # ISO
     iso = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", message)
@@ -280,9 +281,13 @@ def _extract_json_object(raw: str) -> Dict[str, Any]:
 
 def detect_intent(message: str) -> Dict[str, Any]:
     """
-    Classify message intent using Qwen via Ollama, with regex fallback.
+    Classify message intent — regex first, Ollama only for unknown intents.
     Always returns a fully populated dict: intent + all extracted fields.
     """
+    regex_result = _regex_fallback(message)
+    if regex_result.get("intent") not in ("unknown", None, ""):
+        return regex_result
+
     prompt = build_intent_prompt(message)
 
     try:

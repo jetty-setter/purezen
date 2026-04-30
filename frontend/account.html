@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PureZen – My Account</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    html { overflow-y: scroll; }
+
+    /* ── Page ── */
+    .acct-page {
+      min-height: 100vh;
+      padding: 0 0 120px;
+    }
+
+    /* ── Hero strip — light beige ── */
+    .acct-banner {
+      background: var(--cream, #f5f0ea);
+      padding: 56px 0 52px;
+    }
+
+    .acct-banner-inner {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 40px;
+    }
+
+    .acct-eyebrow {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--rose-deep);
+      margin-bottom: 14px;
+      display: block;
+    }
+
+    .acct-name {
+      font-family: "Playfair Display", serif;
+      font-size: clamp(3rem, 6vw, 5rem);
+      font-weight: 600;
+      color: var(--heading, #1a1614);
+      letter-spacing: -0.03em;
+      line-height: 0.95;
+      margin: 0 0 20px;
+    }
+
+    .acct-tagline {
+      font-size: 1rem;
+      color: var(--charcoal-soft, #6b5f58);
+      line-height: 1.7;
+      max-width: 600px;
+      margin: 0;
+    }
+
+    /* Stats in banner top-right */
+    .acct-banner-stats {
+      display: flex;
+      gap: 40px;
+      flex-shrink: 0;
+      align-self: flex-start;
+      padding-top: 6px;
+    }
+
+    .bs-item { text-align: right; }
+
+    .bs-n {
+      font-family: "Playfair Display", serif;
+      font-size: 2.4rem;
+      font-weight: 400;
+      color: var(--heading, #1a1614);
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .bs-l {
+      font-size: 0.66rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--charcoal-soft, #6b5f58);
+    }
+
+    /* ── Book button row ── */
+    .acct-book-row {
+      background: var(--eucalyptus-deep);
+      padding: 18px 0;
+    }
+
+    .acct-book-inner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+    }
+
+    .acct-book-text {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .acct-book-text::before {
+      content: "";
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #d4a8a8;
+      flex-shrink: 0;
+    }
+
+    .acct-book-btn {
+      display: inline-block;
+      padding: 9px 24px;
+      border-radius: 999px;
+      background: #d4a8a8;
+      flex-shrink: 0;
+      color: #5c3535;
+      font-size: 0.88rem;
+      font-weight: 600;
+      font-family: "Manrope", sans-serif;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: opacity 0.18s;
+    }
+    .acct-book-btn:hover { opacity: 0.85; }
+
+    /* ── Content ── */
+    .acct-content {
+      padding-top: 64px;
+    }
+
+    .acct-cols {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 80px;
+      align-items: start;
+    }
+
+    /* ── Editorial sections ── */
+    .ed-section {
+      margin-bottom: 52px;
+    }
+
+    .ed-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--rose-deep);
+      margin-bottom: 20px;
+      display: block;
+    }
+
+    /* Upcoming — white cards */
+    .up-item {
+      background: #fff;
+      border: 1px solid #e8e2da;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 12px;
+    }
+    .up-item:last-child { margin-bottom: 0; }
+
+    .up-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .up-service {
+      font-family: "Playfair Display", serif;
+      font-size: 1.2rem;
+      font-weight: 400;
+      color: var(--heading);
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+    }
+
+    .up-pill {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 999px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: rgba(95,120,108,0.1);
+      color: var(--eucalyptus-deep);
+      flex-shrink: 0;
+    }
+
+    .up-meta {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+    }
+
+    .up-meta-col {}
+
+    .up-meta-label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #b5aca5;
+      margin-bottom: 3px;
+    }
+
+    .up-meta-val {
+      font-size: 0.88rem;
+      color: var(--charcoal, #3a2e28);
+      font-weight: 500;
+    }
+
+    .up-meta-val.mono {
+      font-family: monospace;
+      font-size: 0.78rem;
+      color: #6b5f58;
+    }
+
+    /* Empty */
+    .ed-empty {
+      font-family: "Playfair Display", serif;
+      font-size: 1.15rem;
+      font-style: italic;
+      color: var(--charcoal-soft);
+      margin-bottom: 6px;
+    }
+
+    .ed-empty-sub {
+      font-size: 0.85rem;
+      color: #9a8f89;
+      line-height: 1.7;
+    }
+
+    /* ── History — label/value rows ── */
+    .hist-row {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hist-row:last-of-type { border-bottom: none; }
+
+    .hist-service-unused {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--charcoal);
+      flex: 1;
+    }
+
+    .hist-meta-unused {
+      font-size: 0.82rem;
+      color: #9a8f89;
+      white-space: nowrap;
+    }
+
+    .hist-status-unused {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #c0392b;
+    }
+
+    .show-more {
+      margin-top: 16px;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: "Manrope", sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--eucalyptus-deep);
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    /* ── Right column ── */
+
+    /* Curated — editorial list */
+    .cur-item {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none;
+    }
+    .cur-item:first-child { padding-top: 0; }
+    .cur-item:last-child { border-bottom: none; }
+
+    .cur-left { flex: 1; min-width: 0; }
+
+    .cur-cat {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #9a8f89;
+      margin-bottom: 3px;
+    }
+
+    .cur-name {
+      font-size: 0.97rem;
+      font-weight: 500;
+      color: var(--heading);
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cur-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .cur-price {
+      font-size: 0.88rem;
+      color: var(--charcoal-soft);
+    }
+
+    .cur-cta {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--eucalyptus-deep);
+      white-space: nowrap;
+    }
+
+    .cur-item:hover .cur-name { text-decoration: underline; text-underline-offset: 3px; }
+
+    /* Skeleton */
+    .sk {
+      background: linear-gradient(90deg, #e8e2db 25%, #dfd8d0 50%, #e8e2db 75%);
+      background-size: 200% 100%;
+      animation: sk 1.4s infinite;
+      border-radius: 6px;
+    }
+    @keyframes sk { 0%{background-position:200% 0}100%{background-position:-200% 0} }
+
+    @media (max-width: 860px) {
+      .acct-cols { grid-template-columns: 1fr; gap: 52px; }
+      .acct-banner-stats { display: none; }
+      .acct-banner-inner { flex-direction: column; gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html" class="brand">
+        <div class="brand-mark">PZ</div>
+        <div class="brand-copy">
+          <span class="brand-name">PureZen</span>
+          <span class="brand-subtitle">Spa &amp; Wellness</span>
+        </div>
+      </a>
+      <nav class="desktop-nav">
+        <a href="index.html#experience">Experience</a>
+        <a href="index.html#services">Services</a>
+        <a href="index.html#featured">Featured</a>
+        <a href="index.html#about">About</a>
+        <a href="account.html">My Account</a>
+      </nav>
+      <div class="header-actions">
+        <button class="btn btn-secondary" id="signoutBtn">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="acct-page" id="acctPage" style="display:none">
+
+    <!-- Dark banner -->
+    <div class="acct-banner">
+      <div class="container acct-banner-inner">
+        <div>
+          <span class="acct-eyebrow">Your sanctuary</span>
+          <h1 class="acct-name" id="heroName"></h1>
+          <p class="acct-tagline">Your treatments, appointments, and personal recommendations.</p>
+        </div>
+        <div class="acct-banner-stats">
+          <div class="bs-item">
+            <div class="bs-n" id="statTotal">—</div>
+            <div class="bs-l">Total visits</div>
+          </div>
+          <div class="bs-item">
+            <div class="bs-n" id="statUpcoming">—</div>
+            <div class="bs-l">Upcoming</div>
+          </div>
+          <div class="bs-item">
+            <div class="bs-n" id="statYear">—</div>
+            <div class="bs-l">This year</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Book strip -->
+    <div class="acct-book-row">
+      <div class="container acct-book-inner">
+        <span class="acct-book-text">Ready to book your next session?</span>
+        <a href="index.html?concierge=1" class="acct-book-btn">Concierge</a>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="acct-content">
+      <div class="container">
+        <div class="acct-cols">
+
+          <!-- Left -->
+          <div>
+            <!-- Upcoming -->
+            <div class="ed-section">
+              <span class="ed-label">What's ahead</span>
+              <div id="upcomingList">
+                <div class="sk" style="height:60px;margin-bottom:16px"></div>
+                <div class="sk" style="height:60px;opacity:.5"></div>
+              </div>
+            </div>
+
+            <!-- History -->
+            <div class="ed-section">
+              <span class="ed-label">Your history</span>
+              <div id="historyList">
+                <div class="sk" style="height:44px;margin-bottom:8px"></div>
+                <div class="sk" style="height:44px;margin-bottom:8px;opacity:.6"></div>
+                <div class="sk" style="height:44px;opacity:.35"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right -->
+          <div>
+            <div class="ed-section">
+              <span class="ed-label">Curated for You</span>
+              <div id="curatedList">
+                <div class="sk" style="height:72px;margin-bottom:12px"></div>
+                <div class="sk" style="height:72px;margin-bottom:12px;opacity:.6"></div>
+                <div class="sk" style="height:72px;opacity:.35"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>© 2026 PureZen Spa. All rights reserved.</p>
+      <a href="#" class="text-link">Back to top</a>
+    </div>
+  </footer>
+
+  <script src="config.js?v=5"></script>
+  <script>
+    if (!window.PUREZEN_CONFIG) window.PUREZEN_CONFIG = { API_BASE_URL: "http://pzalb-1467768001.us-east-1.elb.amazonaws.com" };
+    const API = window.PUREZEN_CONFIG.API_BASE_URL;
+    const raw = localStorage.getItem("pz_user");
+    const tok = localStorage.getItem("pz_token");
+    if (!raw || !tok) window.location.href = "auth.html";
+
+    const user = JSON.parse(raw);
+    const firstName = user.name.split(" ")[0];
+    document.getElementById("heroName").textContent = `Welcome,\u00A0${firstName}.`;
+    document.getElementById("acctPage").style.display = "block";
+
+    document.getElementById("signoutBtn").addEventListener("click", async () => {
+      const t = localStorage.getItem("pz_token");
+      if (t) { try { await fetch(`${API}/auth/logout?token=${t}`, { method: "POST" }); } catch {} }
+      localStorage.removeItem("pz_token");
+      localStorage.removeItem("pz_user");
+      window.location.href = "auth.html";
+    });
+
+    const catOf = n => {
+      n = (n || "").toLowerCase();
+      if (n.includes("facial"))  return "Facial";
+      if (n.includes("massage")) return "Massage";
+      if (n.includes("scrub") || n.includes("wrap")) return "Body Treatment";
+      if (n.includes("aroma")) return "Enhancement";
+      return "Treatment";
+    };
+    const fmtP = v => { const n = Number(v); return isNaN(n) ? "" : `$${n}`; };
+
+    async function loadAll() {
+      const [bk, sv] = await Promise.all([
+        fetch(`${API}/bookings/history?email=${encodeURIComponent(user.email)}`).then(r => r.json()).catch(() => []),
+        fetch(`${API}/services`).then(r => r.json()).catch(() => [])
+      ]);
+      const B = Array.isArray(bk) ? bk : [];
+      const S = Array.isArray(sv) ? sv : [];
+      renderStats(B);
+      renderUpcoming(B);
+      renderHistory(B);
+      renderCurated(B, S);
+    }
+
+    function renderStats(B) {
+      const up   = B.filter(b => b.status === "Upcoming");
+      const done = B.filter(b => b.status === "Completed");
+      const yr   = done.filter(b => (b.date_display || "").includes("2026"));
+      document.getElementById("statTotal").textContent    = done.length || "0";
+      document.getElementById("statUpcoming").textContent = up.length   || "0";
+      document.getElementById("statYear").textContent     = yr.length   || "0";
+    }
+
+    function renderUpcoming(B) {
+      const up  = B.filter(b => b.status === "Upcoming");
+      const el  = document.getElementById("upcomingList");
+      if (!up.length) {
+        el.innerHTML = `
+          <p class="ed-empty">Nothing scheduled yet.</p>
+          <p class="ed-empty-sub">Use the concierge above to find and book your perfect treatment.</p>`;
+        return;
+      }
+      el.innerHTML = up.map(b => {
+        const staffShort = b.staff_name ? b.staff_name.split(" ")[0] + " " + (b.staff_name.split(" ")[1]?.[0] || "") + "." : null;
+        return `
+        <div class="up-item">
+          <div class="up-header">
+            <div class="up-service">${b.service_name}</div>
+            <span class="up-pill">Upcoming</span>
+          </div>
+          <div class="up-meta">
+            <div class="up-meta-col">
+              <div class="up-meta-label">Date</div>
+              <div class="up-meta-val">${b.date_display}</div>
+            </div>
+            <div class="up-meta-col">
+              <div class="up-meta-label">Time</div>
+              <div class="up-meta-val">${(t => {
+              const [h,m]=t.split(':');
+              const hr=+h;
+              return (hr%12||12)+':'+m+' '+(hr<12?'AM':'PM');
+            })(b.start_time)}</div>
+            </div>
+            ${staffShort ? `<div class="up-meta-col">
+              <div class="up-meta-label">With</div>
+              <div class="up-meta-val">${staffShort}</div>
+            </div>` : ""}
+            ${b.booking_id ? `<div class="up-meta-col">
+              <div class="up-meta-label">Booking ID</div>
+              <div class="up-meta-val mono">${b.booking_id}</div>
+            </div>` : ""}
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    function renderHistory(B) {
+      const hist = B.filter(b => b.status === "Completed" || b.status === "Cancelled");
+      const el   = document.getElementById("historyList");
+      if (!hist.length) {
+        el.innerHTML = `
+          <p class="ed-empty" style="font-style:italic;">Your journey is just beginning.</p>
+          <p class="ed-empty-sub">Completed appointments will appear here.</p>`;
+        return;
+      }
+      el.innerHTML = hist.map(b => {
+        const isCancelled = b.status === "Cancelled";
+        const pillColor = isCancelled ? "background:rgba(180,60,60,0.1);color:#b43c3c;" : "background:rgba(95,120,108,0.1);color:var(--eucalyptus-deep);";
+        const staffShort = b.staff_name ? b.staff_name.split(" ")[0] + " " + (b.staff_name.split(" ")[1]?.[0] || "") + "." : null;
+        const timeDisplay = b.start_time ? (() => { const [h,m]=b.start_time.split(':'); const hr=+h; return (hr%12||12)+':'+m+' '+(hr<12?'AM':'PM'); })() : null;
+        return `
+        <div style="background:#fff;border:1px solid #e8e2da;border-radius:10px;padding:20px 24px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div class="up-service">${b.service_name}</div>
+            <span class="up-pill" style="${pillColor}">${b.status}</span>
+          </div>
+          <div class="up-meta">
+            <div class="up-meta-col">
+              <div class="up-meta-label">Date</div>
+              <div class="up-meta-val">${b.date_display}</div>
+            </div>
+            ${timeDisplay ? `<div class="up-meta-col">
+              <div class="up-meta-label">Time</div>
+              <div class="up-meta-val">${timeDisplay}</div>
+            </div>` : ""}
+            ${staffShort ? `<div class="up-meta-col">
+              <div class="up-meta-label">With</div>
+              <div class="up-meta-val">${staffShort}</div>
+            </div>` : ""}
+            ${b.booking_id ? `<div class="up-meta-col">
+              <div class="up-meta-label">Booking ID</div>
+              <div class="up-meta-val mono">${b.booking_id}</div>
+            </div>` : ""}
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    function renderCurated(B, S) {
+      const el = document.getElementById("curatedList");
+      if (!S.length) {
+        el.innerHTML = `<p class="ed-empty">No services available.</p>`;
+        return;
+      }
+      const booked = new Set(B.filter(b => b.status === 'Upcoming').map(b => (b.service_name || "").toLowerCase()));
+      const cc = {};
+      B.forEach(b => { const c = catOf(b.service_name); cc[c] = (cc[c] || 0) + 1; });
+      const pref = Object.entries(cc).sort((a, b) => b[1] - a[1]).map(([c]) => c);
+      // Exclude already-booked services, then pick top 2 per preferred category
+      const unbooked = S.filter(s => !booked.has((s.name || "").toLowerCase()));
+      const seen = {};
+      const top = [];
+      // First pass: up to 2 per category in preference order
+      for (const cat of pref) {
+        const inCat = unbooked.filter(s => catOf(s.name) === cat && !(seen[cat] >= 2));
+        for (const s of inCat) {
+          const capFor = pref.indexOf(cat) === 0 ? 2 : 1;
+          if ((seen[cat] || 0) < capFor) {
+            top.push({ s, cat });
+            seen[cat] = (seen[cat] || 0) + 1;
+          }
+          if (top.length === 4) break;
+        }
+        if (top.length === 4) break;
+      }
+      // Fill remaining slots from any category
+      if (top.length < 4) {
+        for (const s of unbooked) {
+          if (!top.find(t => t.s.name === s.name)) {
+            top.push({ s, cat: catOf(s.name) });
+            if (top.length === 4) break;
+          }
+        }
+      }
+      if (!top.length) {
+        el.innerHTML = `<p class="ed-empty">Check back after your first visit.</p>`;
+        return;
+      }
+      el.innerHTML = top.map(({ s, cat }) => `
+        <a class="cur-item" href="${'index.html?concierge=1&msg=' + encodeURIComponent('I would like to book a ' + s.name)}">
+          <div class="cur-left">
+            <div class="cur-cat">${cat}</div>
+            <div class="cur-name">${s.name}</div>
+          </div>
+          <div class="cur-right">
+            ${s.price ? `<span class="cur-price">${fmtP(s.price)}</span>` : ""}
+            <span class="cur-cta">Book →</span>
+          </div>
+        </a>`).join("");
+    }
+
+    loadAll();
+  </script>
+</body>
+</html>

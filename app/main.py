@@ -31,14 +31,12 @@ except Exception:
 app = FastAPI(title="PureZen API")
 
 ALLOWED_ORIGINS = [
-    "http://purezenstack-purezens3bucket-dmcuxdcdokqp.s3-website-us-east-1.amazonaws.com",
-    "http://pzalb-1951851377.us-east-1.elb.amazonaws.com",
+    "http://purezen-frontend.s3-website-us-east-1.amazonaws.com",
+    "http://pzalb-1467768001.us-east-1.elb.amazonaws.com",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
-    # Admin portal — served from same S3 bucket
-    "http://purezenstack-purezens3bucket-dmcuxdcdokqp.s3-website-us-east-1.amazonaws.com",
 ]
 
 app.add_middleware(

@@ -253,13 +253,23 @@ def get_available_slots_for_service(
     return representative[:limit]
 
 
+def _to_12hr(time_str: str) -> str:
+    """Convert 24-hour time string (HH:MM) to 12-hour format (H:MM AM/PM)."""
+    try:
+        from datetime import datetime as _dt
+        t = _dt.strptime(time_str.strip(), "%H:%M")
+        return t.strftime("%I:%M %p").lstrip("0")
+    except Exception:
+        return time_str
+
+
 def format_slots_for_response(slots: List[Dict[str, Any]]) -> str:
     if not slots:
         return "I couldn't find any openings."
 
     lines = []
-    for slot in slots:
-        time_text  = slot.get("start_time") or "Unknown time"
+    for slot in sorted(slots, key=lambda s: s.get("start_time") or ""):
+        time_text  = _to_12hr(slot.get("start_time") or "Unknown time")
         staff_name = slot.get("staff_name")
         lines.append(f"- {time_text} with {staff_name}" if staff_name else f"- {time_text}")
 
