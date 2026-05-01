@@ -1,9 +1,23 @@
-import os
+from __future__ import annotations
+import logging
+from typing import Optional
+import anthropic
 
-AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+log = logging.getLogger(__name__)
 
-SERVICES_TABLE = os.getenv("SERVICES_TABLE", "purezen_services")
-AVAILABILITY_TABLE = os.getenv("AVAILABILITY_TABLE", "purezen_availability")
-BOOKINGS_TABLE = os.getenv("BOOKINGS_TABLE", "purezen_bookings")
+client = anthropic.Anthropic()
+
+def call_ollama(prompt: str, system: Optional[str] = None) -> str:
+    try:
+        kwargs = {
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 1024,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if system:
+            kwargs["system"] = system
+        response = client.messages.create(**kwargs)
+        return response.content[0].text.strip()
+    except Exception as exc:
+        log.error("Anthropic request failed: %s", exc)
+        raise
