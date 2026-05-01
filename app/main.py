@@ -30,7 +30,11 @@ except Exception:
 
 app = FastAPI(title="PureZen API")
 
-ALLOWED_ORIGINS = ["*"]
+ALLOWED_ORIGINS = [
+    "http://178.105.54.156",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 
 app.add_middleware(
     CORSMiddleware,
