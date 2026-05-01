@@ -1,23 +1,7 @@
-from __future__ import annotations
-import logging
-from typing import Optional
-import anthropic
+import os
 
-log = logging.getLogger(__name__)
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
-client = anthropic.Anthropic()
-
-def call_ollama(prompt: str, system: Optional[str] = None) -> str:
-    try:
-        kwargs = {
-            "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 1024,
-            "messages": [{"role": "user", "content": prompt}],
-        }
-        if system:
-            kwargs["system"] = system
-        response = client.messages.create(**kwargs)
-        return response.content[0].text.strip()
-    except Exception as exc:
-        log.error("Anthropic request failed: %s", exc)
-        raise
+SERVICES_TABLE = os.getenv("SERVICES_TABLE", "purezen_services")
+AVAILABILITY_TABLE = os.getenv("AVAILABILITY_TABLE", "purezen_availability")
+BOOKINGS_TABLE = os.getenv("BOOKINGS_TABLE", "purezen_bookings")
