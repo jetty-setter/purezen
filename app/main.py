@@ -30,14 +30,7 @@ except Exception:
 
 app = FastAPI(title="PureZen API")
 
-ALLOWED_ORIGINS = [
-    "http://purezen-frontend.s3-website-us-east-1.amazonaws.com",
-    "http://pzalb-1467768001.us-east-1.elb.amazonaws.com",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-]
+ALLOWED_ORIGINS = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
