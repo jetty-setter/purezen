@@ -591,42 +591,6 @@ def _handle_comparison(
         session_id
     )
 
-def _handle_comparison(
-    message: str,
-    msg: str,
-    session_id: str,
-    user_name: Optional[str] = None,
-) -> Dict[str, Any]:
-    from app.llm import call_ollama
-    services = _all_services()
-    service_list = "\n".join(
-        f"- {_service_name(s)}: {s.get('description', '')} ({s.get('duration_minutes', '?')} min, ${int(s.get('price', 0))})"
-        for s in services if _service_name(s)
-    )
-    name_line = f"The guest's name is {user_name.split()[0]}. " if user_name else ""
-    prompt = (
-        f"You are a knowledgeable spa concierge at PureZen Spa & Wellness. "
-        f"{name_line}"
-        f"A guest asked: \"{message}\"\n\n"
-        f"Our services:\n{service_list}\n\n"
-        "Answer their question directly and helpfully. If they are comparing two services, "
-        "explain the key differences clearly in 3-4 sentences. Be warm but informative. "
-        "End by asking which sounds right for them or if they'd like to book one."
-    )
-    try:
-        from app.llm import call_ollama
-        response = call_ollama(prompt)
-        if response and len(response.strip()) > 20:
-            return _response(response.strip(), session_id)
-    except Exception as exc:
-        log.warning("_handle_comparison LLM failed: %s", exc)
-    return _response(
-        "Swedish Massage uses gentle, flowing strokes to promote relaxation and is ideal for stress relief. "
-        "Deep Tissue targets deeper muscle layers with more pressure, suited for chronic tension or soreness. "
-        "Which sounds right for you?",
-        session_id
-    )
-
 def _handle_recommendation(
     message: str,
     msg: str,

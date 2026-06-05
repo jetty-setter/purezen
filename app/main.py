@@ -71,6 +71,30 @@ def healthz() -> dict:
     return {"status": "healthy"}
 
 
+@app.get("/health/llm")
+def health_llm() -> dict:
+    """Diagnostic: actually calls the LLM and surfaces the real error.
+    Hit this in a browser to see WHY chat is failing instead of getting
+    silently-degraded canned replies. Remove or protect before production."""
+    import os
+    from app.llm import call_ollama, LLM_MODEL
+    try:
+        reply = call_ollama("Reply with the single word: pong")
+        return {
+            "ok": True,
+            "model": LLM_MODEL,
+            "api_key_present": bool(os.getenv("ANTHROPIC_API_KEY")),
+            "sample": reply,
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "model": LLM_MODEL,
+            "api_key_present": bool(os.getenv("ANTHROPIC_API_KEY")),
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
     session_id = request.session_id or str(__import__("uuid").uuid4())
