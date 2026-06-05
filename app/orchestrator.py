@@ -34,6 +34,16 @@ except Exception:
 
 log = logging.getLogger(__name__)
 
+# Style guide for guest-facing replies. The model otherwise tends to return
+# Markdown (headers, bullets, **bold**), which renders as raw symbols in the
+# chat bubble. Keep concierge replies as warm, plain conversational prose.
+_PLAIN_STYLE = (
+    "You are a warm, helpful spa concierge. Reply in natural, conversational "
+    "sentences only. Do NOT use Markdown: no headers (#), no bullet points or "
+    "dashes, no numbered lists, no asterisks, and no bold or italic markup. "
+    "Keep it brief and friendly, like a real person speaking."
+)
+
 
 # ---------------------------------------------------------------------------
 # Core response builder
@@ -579,7 +589,7 @@ def _handle_comparison(
     )
     try:
         from app.llm import call_ollama
-        response = call_ollama(prompt)
+        response = call_ollama(prompt, system=_PLAIN_STYLE)
         if response and len(response.strip()) > 20:
             return _response(response.strip(), session_id)
     except Exception as exc:
@@ -606,7 +616,7 @@ def _handle_recommendation(
         )
     prompt = _build_recommendation_prompt(message, services, user_name)
     try:
-        response = call_ollama(prompt)
+        response = call_ollama(prompt, system=_PLAIN_STYLE)
         if response and len(response.strip()) > 20:
             return _response(response.strip(), session_id)
     except Exception as exc:
