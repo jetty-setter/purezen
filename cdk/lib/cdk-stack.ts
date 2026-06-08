@@ -37,6 +37,8 @@ export class PureZenStack extends cdk.Stack {
         // Customer chat + admin LLM both run on Anthropic now.
         ANTHROPIC_API_KEY: requiredEnv('ANTHROPIC_API_KEY'),
         LLM_MODEL: process.env.LLM_MODEL || 'claude-haiku-4-5-20251001',
+        // /health/llm stays disabled (404) unless DIAG_TOKEN is set in .env.
+        ...(process.env.DIAG_TOKEN ? { DIAG_TOKEN: process.env.DIAG_TOKEN } : {}),
         // Note: AWS_REGION is injected automatically by the Lambda runtime.
       },
     });

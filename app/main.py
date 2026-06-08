@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 from pydantic import BaseModel
@@ -79,11 +79,17 @@ def healthz() -> dict:
 
 
 @app.get("/health/llm")
-def health_llm() -> dict:
-    """Diagnostic: actually calls the LLM and surfaces the real error.
-    Hit this in a browser to see WHY chat is failing instead of getting
-    silently-degraded canned replies. Remove or protect before production."""
-    import os
+def health_llm(x_diag_token: Optional[str] = Header(default=None)) -> dict:
+    """Protected diagnostic: actually calls the LLM and surfaces the real error.
+
+    Disabled by default. It only responds when the DIAG_TOKEN env var is set
+    AND the request sends a matching `X-Diag-Token` header; otherwise it 404s
+    (same as a nonexistent route) so it can't be used to probe key presence or
+    trigger LLM calls publicly."""
+    expected = os.getenv("DIAG_TOKEN")
+    if not expected or x_diag_token != expected:
+        raise HTTPException(status_code=404, detail="Not Found")
+
     from app.llm import call_ollama, LLM_MODEL
     try:
         reply = call_ollama("Reply with the single word: pong")
