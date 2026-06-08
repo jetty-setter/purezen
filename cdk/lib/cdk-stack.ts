@@ -38,11 +38,15 @@ export class PureZenStack extends cdk.Stack {
     });
 
     // ── DynamoDB access scoped to the purezen_* tables ───────────────────
+    // Tables use both naming styles: purezen_* (underscore) and the
+    // purezen-chat-sessions table (hyphen), so cover both prefixes.
     fn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:*'],
       resources: [
         `arn:aws:dynamodb:${this.region}:${this.account}:table/purezen_*`,
         `arn:aws:dynamodb:${this.region}:${this.account}:table/purezen_*/index/*`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/purezen-*`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/purezen-*/index/*`,
       ],
     }));
 
