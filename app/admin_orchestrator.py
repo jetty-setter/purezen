@@ -15,10 +15,9 @@ import logging
 from datetime import datetime
 from typing import Any, Callable, Dict, Optional
 
-import requests as http_requests
-
 from app.admin_tools import execute_tool
 from app.admin_intent import classify
+from app.llm import call_ollama
 
 log = logging.getLogger(__name__)
 
@@ -68,21 +67,16 @@ def _call_llm(prompt: str, model: str = None, strict: bool = False) -> str:
     else:
         full_prompt = prompt
 
+    # Admin LLM now runs on Anthropic (same provider as the customer chat) so
+    # it works on Lambda — no local Ollama server required. The `strict` system
+    # prompt is passed through `call_ollama`'s `system` argument; non-strict
+    # callers send the prompt verbatim.
     try:
-        r = http_requests.post(
-            f"{_config.ollama_url}/api/generate",
-            json={
-                "model":   use_model,
-                "prompt":  full_prompt,
-                "stream":  False,
-                "options": {"temperature": 0.1},
-            },
-            timeout=_config.timeout,
-        )
-        r.raise_for_status()
-        return (r.json().get("response") or "").strip()
+        if strict:
+            return call_ollama(prompt, system=system).strip()
+        return call_ollama(full_prompt).strip()
     except Exception as exc:
-        log.warning("LLM call failed (%s): %s", use_model, exc)
+        log.warning("LLM call failed: %s", exc)
         return ""
 
 

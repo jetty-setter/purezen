@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from mangum import Mangum
 from pydantic import BaseModel
 
 from app.orchestrator import handle_chat
@@ -122,3 +123,7 @@ if history_router:
 
 if admin_router:
     app.include_router(admin_router)
+
+
+# Lambda handler (API Gateway proxy via Mangum). Ignored when run under uvicorn.
+handler = Mangum(app, lifespan="off")
