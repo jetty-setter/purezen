@@ -8,3 +8,5 @@ uvicorn.log
 venv/
 .venv/
 *.bak
+node_modules/
+cdk/cdk.out/
