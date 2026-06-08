@@ -31,11 +31,17 @@ except Exception:
 
 app = FastAPI(title="PureZen API")
 
+import os
+
+# The deployed frontend origin (CloudFront URL) is injected by CDK at deploy
+# time so CORS has a single source of truth without hardcoding it here.
 ALLOWED_ORIGINS = [
-    "http://178.105.54.156",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+_frontend_origin = os.getenv("FRONTEND_ORIGIN")
+if _frontend_origin:
+    ALLOWED_ORIGINS.append(_frontend_origin)
 
 app.add_middleware(
     CORSMiddleware,

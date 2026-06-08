@@ -2,6 +2,10 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigw from 'aws-cdk-lib/aws-apigateway';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Construct } from 'constructs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
@@ -66,7 +70,36 @@ export class PureZenStack extends cdk.Stack {
       }),
     });
 
+    // ── Static frontend hosting (S3 + CloudFront) ────────────────────────
+    const siteBucket = new s3.Bucket(this, 'FrontendBucket', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    const distribution = new cloudfront.Distribution(this, 'FrontendCDN', {
+      defaultBehavior: {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(siteBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+      },
+      defaultRootObject: 'index.html',
+    });
+
+    // Let FastAPI's CORS accept requests from the deployed frontend origin.
+    fn.addEnvironment('FRONTEND_ORIGIN', `https://${distribution.distributionDomainName}`);
+
+    new s3deploy.BucketDeployment(this, 'FrontendDeployment', {
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../../frontend'), {
+        exclude: ['.DS_Store', 'patch.py', 'api/**'],
+      })],
+      destinationBucket: siteBucket,
+      distribution,
+      distributionPaths: ['/*'],
+    });
+
     // ── Outputs ──────────────────────────────────────────────────────────
     new cdk.CfnOutput(this, 'ApiUrl', { value: api.url });
+    new cdk.CfnOutput(this, 'FrontendUrl', { value: `https://${distribution.distributionDomainName}` });
   }
 }

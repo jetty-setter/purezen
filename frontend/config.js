@@ -1,11 +1,10 @@
 window.PUREZEN_CONFIG = {
-  API_BASE_URL: "",
-  CHAT_ENDPOINT:               "/api/chat",
-  SERVICES_ENDPOINT:           "/api/services",
-  HEALTH_ENDPOINT:             "/api/health",
-  AVAILABILITY_ENDPOINT:       "/api/availability",
-  BOOKINGS_ENDPOINT:           "/api/bookings",
-  CANCEL_BOOKING_ENDPOINT:     "/api/bookings/cancel",
-  RESCHEDULE_BOOKING_ENDPOINT: "/api/bookings/reschedule",
+  // FastAPI backend on AWS Lambda (API Gateway). Paths match the backend
+  // routes directly (no /api proxy prefix like the old Vercel/Hetzner setup).
+  API_BASE_URL: "https://aldr43obo5.execute-api.us-east-1.amazonaws.com/prod",
+  CHAT_ENDPOINT:             "/chat",
+  SERVICES_ENDPOINT:         "/services",
+  HEALTH_ENDPOINT:           "/health",
+  BOOKINGS_HISTORY_ENDPOINT: "/bookings/history",
   REQUEST_TIMEOUT_MS: 120000,
 };
