@@ -31,7 +31,9 @@ def call_ollama(prompt: str, system: Optional[str] = None) -> str:
         client = _get_client()
         kwargs = {
             "model": LLM_MODEL,
-            "max_tokens": 1024,
+            # Concierge replies are short; a tighter cap keeps answers concise
+            # (more human, less rambly) and avoids the occasional long generation.
+            "max_tokens": 600,
             "messages": [{"role": "user", "content": prompt}],
         }
         if system:

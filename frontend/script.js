@@ -30,14 +30,14 @@
   // ---------------------------------------------------------------------------
 
   const DEFAULT_PROMPTS = [
-    "Book a Swedish Massage tomorrow",
+    "I'm stiff from sitting all week",
     "What facials do you offer?",
-    "I need to reschedule my appointment",
-    "Cancel my booking",
+    "Book a Swedish massage for tomorrow",
+    "Reschedule my appointment",
   ];
 
   const WELCOME_MESSAGE =
-    "Welcome to PureZen. I can help you explore services, check availability, book an appointment, reschedule, or cancel.";
+    "Hi! I'm the PureZen concierge. Tell me how you're feeling or what you're after, and I'll find the right treatment — I can book it for you, too.";
 
   // ---------------------------------------------------------------------------
   // Session helpers
@@ -178,6 +178,23 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Warm-up — fire a cheap request the moment the visitor engages the chat, so
+  // the (serverless) backend is already hot by the time they send a message.
+  // Hides Lambda cold starts without any always-on cost. Runs at most once.
+  // ---------------------------------------------------------------------------
+
+  let backendWarmed = false;
+
+  function warmUpBackend() {
+    if (backendWarmed) return;
+    backendWarmed = true;
+
+    const cfg = window.PUREZEN_CONFIG || {};
+    const url = `${cfg.API_BASE_URL || ""}${cfg.HEALTH_ENDPOINT || "/health"}`;
+    fetch(url, { method: "GET", mode: "cors", cache: "no-store" }).catch(() => {});
+  }
+
+  // ---------------------------------------------------------------------------
   // Send message — delegates fetch to api.js
   // ---------------------------------------------------------------------------
 
@@ -293,7 +310,7 @@
 
     const { user } = getSessionUser();
     const greeting = user
-      ? `Welcome back, ${user.name.split(" ")[0]}. I can help you explore services, check availability, book an appointment, reschedule, or cancel.`
+      ? `Welcome back, ${user.name.split(" ")[0]}. How are you feeling today — and what can I get on the books for you?`
       : WELCOME_MESSAGE;
 
     appendMessage("bot", greeting);
@@ -332,6 +349,9 @@
       chatInput.value = "";
       await sendMessage(message);
     });
+
+    // Warm the backend as soon as the visitor shows intent to chat.
+    chatInput.addEventListener("focus", warmUpBackend, { once: true });
   }
 
   function bindMobileMenu() {
@@ -370,6 +390,18 @@
     ensureWelcomeMessage();
     renderSuggestedPrompts();
     loadServices();
+
+    // Also warm the backend when the concierge section scrolls into view.
+    const conciergeSection = document.getElementById("concierge");
+    if (conciergeSection && "IntersectionObserver" in window) {
+      const observer = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          warmUpBackend();
+          observer.disconnect();
+        }
+      }, { threshold: 0.25 });
+      observer.observe(conciergeSection);
+    }
   }
 
   // Expose init so app.js can call window.PureZenUI.init()
