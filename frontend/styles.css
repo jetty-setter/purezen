@@ -695,7 +695,7 @@ button {
 .chat-header {
   padding: 22px 24px;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 16px;
   background: #e8e1db;
@@ -712,14 +712,6 @@ button {
 .chat-subtitle {
   margin-top: 4px;
   font-size: 0.92rem;
-}
-
-.chat-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--eucalyptus);
-  box-shadow: 0 0 0 6px rgba(123, 148, 135, 0.12);
 }
 
 .chat-reset-button {
