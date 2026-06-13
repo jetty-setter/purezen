@@ -6,6 +6,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import { Construct } from 'constructs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
@@ -79,6 +80,15 @@ export class PureZenStack extends cdk.Stack {
       autoDeleteObjects: true,
     });
 
+    // ── Custom domain for the frontend ───────────────────────────────────
+    // Defaults to the production domain so a deploy never silently drops the
+    // CNAME (and the matching CORS origin); override via SITE_DOMAIN / CERT_ARN
+    // in .env if needed. The cert is the existing *.stephsimmons.dev wildcard
+    // in us-east-1. DNS (the Route 53 A-alias) is managed outside this stack.
+    const siteDomain = process.env.SITE_DOMAIN || 'purezen.stephsimmons.dev';
+    const certArn = process.env.CERT_ARN
+      || 'arn:aws:acm:us-east-1:936922781601:certificate/37dec03b-9b1d-44f7-b099-4993542d302c';
+
     const distribution = new cloudfront.Distribution(this, 'FrontendCDN', {
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(siteBucket),
@@ -86,10 +96,13 @@ export class PureZenStack extends cdk.Stack {
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
       },
       defaultRootObject: 'index.html',
+      domainNames: [siteDomain],
+      certificate: acm.Certificate.fromCertificateArn(this, 'SiteCert', certArn),
     });
 
-    // Let FastAPI's CORS accept requests from the deployed frontend origin.
-    fn.addEnvironment('FRONTEND_ORIGIN', `https://${distribution.distributionDomainName}`);
+    // Let FastAPI's CORS accept requests from the custom domain the browser
+    // actually loads (not the raw CloudFront hostname).
+    fn.addEnvironment('FRONTEND_ORIGIN', `https://${siteDomain}`);
 
     new s3deploy.BucketDeployment(this, 'FrontendDeployment', {
       sources: [s3deploy.Source.asset(path.join(__dirname, '../../frontend'), {
@@ -102,6 +115,7 @@ export class PureZenStack extends cdk.Stack {
 
     // ── Outputs ──────────────────────────────────────────────────────────
     new cdk.CfnOutput(this, 'ApiUrl', { value: api.url });
-    new cdk.CfnOutput(this, 'FrontendUrl', { value: `https://${distribution.distributionDomainName}` });
+    new cdk.CfnOutput(this, 'FrontendUrl', { value: `https://${siteDomain}` });
+    new cdk.CfnOutput(this, 'CloudFrontDomain', { value: distribution.distributionDomainName });
   }
 }
