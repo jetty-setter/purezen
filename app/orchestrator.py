@@ -576,7 +576,7 @@ def _handle_comparison(
     session_id: str,
     user_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    from app.llm import call_ollama
+    from app.llm import call_llm
     services = _all_services()
     service_list = "\n".join(
         f"- {_service_name(s)}: {s.get('description', '')} ({s.get('duration_minutes', '?')} min, ${int(s.get('price', 0))})"
@@ -593,8 +593,8 @@ def _handle_comparison(
         "End by asking which sounds right for them or if they'd like to book one."
     )
     try:
-        from app.llm import call_ollama
-        response = call_ollama(prompt, system=_PLAIN_STYLE)
+        from app.llm import call_llm
+        response = call_llm(prompt, system=_PLAIN_STYLE)
         if response and len(response.strip()) > 20:
             return _response(response.strip(), session_id)
     except Exception as exc:
@@ -612,7 +612,7 @@ def _handle_recommendation(
     session_id: str,
     user_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    from app.llm import call_ollama
+    from app.llm import call_llm
     services = _all_services()
     if not services:
         return _response(
@@ -621,7 +621,7 @@ def _handle_recommendation(
         )
     prompt = _build_recommendation_prompt(message, services, user_name)
     try:
-        response = call_ollama(prompt, system=_PLAIN_STYLE)
+        response = call_llm(prompt, system=_PLAIN_STYLE)
         if response and len(response.strip()) > 20:
             return _response(response.strip(), session_id)
     except Exception as exc:

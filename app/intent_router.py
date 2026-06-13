@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-from app.llm import call_ollama
+from app.llm import call_llm
 from app.prompts import build_intent_prompt
 
 log = logging.getLogger(__name__)
@@ -291,7 +291,7 @@ def detect_intent(message: str) -> Dict[str, Any]:
     prompt = build_intent_prompt(message)
 
     try:
-        raw = call_ollama(prompt)
+        raw = call_llm(prompt)
         parsed = _extract_json_object(raw)
 
         if "intent" in parsed:

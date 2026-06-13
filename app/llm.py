@@ -26,7 +26,7 @@ def _get_client() -> anthropic.Anthropic:
     return _client
 
 
-def call_ollama(prompt: str, system: Optional[str] = None) -> str:
+def call_llm(prompt: str, system: Optional[str] = None) -> str:
     try:
         client = _get_client()
         kwargs = {

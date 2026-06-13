@@ -90,9 +90,9 @@ def health_llm(x_diag_token: Optional[str] = Header(default=None)) -> dict:
     if not expected or x_diag_token != expected:
         raise HTTPException(status_code=404, detail="Not Found")
 
-    from app.llm import call_ollama, LLM_MODEL
+    from app.llm import call_llm, LLM_MODEL
     try:
-        reply = call_ollama("Reply with the single word: pong")
+        reply = call_llm("Reply with the single word: pong")
         return {
             "ok": True,
             "model": LLM_MODEL,

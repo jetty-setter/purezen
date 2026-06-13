@@ -17,7 +17,7 @@ from typing import Any, Callable, Dict, Optional
 
 from app.admin_tools import execute_tool
 from app.admin_intent import classify
-from app.llm import call_ollama
+from app.llm import call_llm
 
 log = logging.getLogger(__name__)
 
@@ -69,12 +69,12 @@ def _call_llm(prompt: str, model: str = None, strict: bool = False) -> str:
 
     # Admin LLM now runs on Anthropic (same provider as the customer chat) so
     # it works on Lambda — no local Ollama server required. The `strict` system
-    # prompt is passed through `call_ollama`'s `system` argument; non-strict
+    # prompt is passed through `call_llm`'s `system` argument; non-strict
     # callers send the prompt verbatim.
     try:
         if strict:
-            return call_ollama(prompt, system=system).strip()
-        return call_ollama(full_prompt).strip()
+            return call_llm(prompt, system=system).strip()
+        return call_llm(full_prompt).strip()
     except Exception as exc:
         log.warning("LLM call failed: %s", exc)
         return ""
