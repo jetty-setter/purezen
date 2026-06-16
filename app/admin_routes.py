@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
-import time
+import os
 import time
 import uuid
 from collections import Counter
@@ -38,6 +38,28 @@ users_table  = dynamodb.Table(USERS_TABLE)
 staff_table  = dynamodb.Table(STAFF_TABLE)
 
 configure_llm(timeout=60)
+
+# ---------------------------------------------------------------------------
+# Public read-only demo
+# ---------------------------------------------------------------------------
+# The portfolio deployment exposes the admin console at a fixed demo token so
+# visitors can explore every dashboard and the AI assistant without a login.
+# Reads are allowed; every mutating endpoint is blocked (see _block_if_demo)
+# so the shared demo data can't be changed or sabotaged.
+DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() == "true"
+DEMO_ADMIN_TOKEN = os.getenv("DEMO_ADMIN_TOKEN", "demo-admin")
+
+
+def _is_demo(token: Optional[str]) -> bool:
+    return DEMO_MODE and token == DEMO_ADMIN_TOKEN
+
+
+def _block_if_demo(token: Optional[str]) -> None:
+    if _is_demo(token):
+        raise HTTPException(
+            status_code=403,
+            detail="This is a read-only demo of the PureZen admin console — changes are disabled.",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +229,8 @@ def _get_data_fns() -> Dict[str, Any]:
 
 
 def _verify_admin_token(token: str) -> bool:
+    if _is_demo(token):
+        return True
     try:
         return len(admins_table.scan(FilterExpression=Attr("token").eq(token)).get("Items", [])) > 0
     except Exception:
@@ -214,6 +238,8 @@ def _verify_admin_token(token: str) -> bool:
 
 
 def _verify_staff_token(token: str) -> bool:
+    if _is_demo(token):
+        return True
     try:
         if admins_table.scan(FilterExpression=Attr("token").eq(token)).get("Items"):
             return True
@@ -224,6 +250,8 @@ def _verify_staff_token(token: str) -> bool:
 
 
 def _verify_any_token(token: str) -> Optional[Dict[str, Any]]:
+    if _is_demo(token):
+        return {"role": "admin", "name": "Demo Admin", "id": "demo-admin"}
     try:
         items = admins_table.scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
         if items and items[0].get("active", True):
@@ -437,6 +465,7 @@ def get_staff_roster(token: str) -> List[Dict[str, Any]]:
 
 @router.post("/bookings/cancel")
 def admin_cancel_booking(request: AdminCancelRequest, token: str) -> Dict[str, Any]:
+    _block_if_demo(token)
     if not _verify_staff_token(token): raise HTTPException(status_code=401, detail="Unauthorized.")
     table     = get_availability_table()
     all_slots = _scan_all(table)
@@ -479,6 +508,7 @@ def _send_cancel_email(slot: Dict[str, Any]) -> None:
 
 @router.post("/bookings/reschedule")
 def admin_reschedule_booking(request: AdminRescheduleRequest, token: str) -> Dict[str, Any]:
+    _block_if_demo(token)
     if not _verify_staff_token(token): raise HTTPException(status_code=401, detail="Unauthorized.")
     result = reschedule_booking(booking_id=request.booking_id, new_slot_id=request.new_slot_id)
     if not result.get("success"): raise HTTPException(status_code=400, detail=result.get("message"))
@@ -597,6 +627,7 @@ def get_walkin_slots(token: str, date: str) -> List[Dict[str, Any]]:
 
 @router.post("/walkin/book")
 def walkin_book(request: WalkInRequest) -> Dict[str, Any]:
+    _block_if_demo(request.token)
     if not _verify_staff_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     table    = get_availability_table()
     slot     = table.get_item(Key={"slot_id": request.slot_id}).get("Item")
@@ -619,6 +650,7 @@ def walkin_book(request: WalkInRequest) -> Dict[str, Any]:
 
 @router.post("/staff/set-password")
 def set_staff_password(request: SetStaffPasswordRequest) -> Dict[str, Any]:
+    _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     if len(request.password) < 8: raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
     pw_hash = bcrypt.hashpw(request.password.encode(), bcrypt.gensalt()).decode()
@@ -638,6 +670,7 @@ def list_admins(token: str) -> List[Dict[str, Any]]:
 
 @router.post("/users/admins/create")
 def create_admin(request: CreateAdminRequest) -> Dict[str, Any]:
+    _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     email = request.email.lower().strip()
     if admins_table.scan(FilterExpression=Attr("email").eq(email)).get("Items"):
@@ -650,6 +683,7 @@ def create_admin(request: CreateAdminRequest) -> Dict[str, Any]:
 
 @router.post("/users/admins/deactivate")
 def deactivate_admin(request: AdminActionRequest) -> Dict[str, Any]:
+    _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     caller = admins_table.scan(FilterExpression=Attr("token").eq(request.token)).get("Items", [])
     if caller and caller[0].get("admin_id") == request.admin_id:
@@ -660,6 +694,7 @@ def deactivate_admin(request: AdminActionRequest) -> Dict[str, Any]:
 
 @router.post("/users/admins/reactivate")
 def reactivate_admin(request: AdminActionRequest) -> Dict[str, Any]:
+    _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     admins_table.update_item(Key={"admin_id": request.admin_id}, UpdateExpression="SET active = :v", ExpressionAttributeValues={":v": True})
     return {"success": True, "message": "Admin reactivated."}
@@ -667,6 +702,7 @@ def reactivate_admin(request: AdminActionRequest) -> Dict[str, Any]:
 
 @router.post("/users/admins/reset-password")
 def reset_admin_password(request: ResetAdminPasswordRequest) -> Dict[str, Any]:
+    _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     if len(request.password) < 8: raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
     pw_hash = bcrypt.hashpw(request.password.encode(), bcrypt.gensalt()).decode()
@@ -690,6 +726,7 @@ def list_customers(token: str) -> List[Dict[str, Any]]:
 
 @router.post("/users/customers/deactivate")
 def deactivate_customer(request: UserActionRequest) -> Dict[str, Any]:
+    _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     users_table.update_item(Key={"user_id": request.user_id}, UpdateExpression="SET active = :v", ExpressionAttributeValues={":v": False})
     return {"success": True, "message": "Customer account deactivated."}
@@ -697,6 +734,7 @@ def deactivate_customer(request: UserActionRequest) -> Dict[str, Any]:
 
 @router.post("/users/customers/reactivate")
 def reactivate_customer(request: UserActionRequest) -> Dict[str, Any]:
+    _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     users_table.update_item(Key={"user_id": request.user_id}, UpdateExpression="SET active = :v", ExpressionAttributeValues={":v": True})
     return {"success": True, "message": "Customer account reactivated."}
@@ -719,6 +757,7 @@ def list_staff(token: str) -> List[Dict[str, Any]]:
 
 @router.post("/users/staff/create")
 def create_staff(request: CreateStaffRequest) -> Dict[str, Any]:
+    _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     staff_id = f"stf_{uuid.uuid4().hex[:6]}"; display_name = f"{request.first_name} {request.last_name[0]}."
     staff_table.put_item(Item={"staff_id": staff_id, "first_name": request.first_name.strip(), "last_name": request.last_name.strip(), "display_name": display_name, "role": request.role.strip(), "email": request.email.lower().strip(), "employment_type": request.employment_type, "weekly_hours_limit": request.weekly_hours_limit, "skills": request.skills, "is_active": True, "location_id": request.location_id, "created_at": datetime.utcnow().isoformat()})
@@ -727,6 +766,7 @@ def create_staff(request: CreateStaffRequest) -> Dict[str, Any]:
 
 @router.post("/users/staff/toggle")
 def toggle_staff(request: StaffActionRequest) -> Dict[str, Any]:
+    _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     staff_table.update_item(Key={"staff_id": request.staff_id}, UpdateExpression="SET is_active = :v", ExpressionAttributeValues={":v": request.is_active})
     return {"success": True, "message": f"Staff member {'activated' if request.is_active else 'deactivated'}."}

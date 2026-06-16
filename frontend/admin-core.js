@@ -4,6 +4,22 @@
 
 const API = window.PUREZEN_CONFIG.API_BASE_URL;
 
+// --- Public read-only demo ---
+// On the demo host (or with ?demo) skip the login screen entirely and run as a
+// fixed read-only admin. The backend accepts this token for reads and blocks
+// every write, so visitors can explore all dashboards and the AI assistant
+// without credentials and without changing the shared demo data.
+const DEMO_HOSTS = ["purezen.stephsimmons.dev"];
+const IS_DEMO = DEMO_HOSTS.includes(location.hostname) ||
+                new URLSearchParams(location.search).has("demo");
+const DEMO_TOKEN = "demo-admin";
+
+function demoLogin() {
+  tok = DEMO_TOKEN;
+  sa(DEMO_TOKEN, "Demo Admin", "admin");
+  showApp("Demo Admin", "admin");
+}
+
 
 let tok = null;
 let allBookings  = [];
@@ -114,6 +130,13 @@ function showApp(name, role) {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("appShell").style.display   = "block";
   document.getElementById("adminName").textContent    = name;
+  if (IS_DEMO && !document.getElementById("demoBadge")) {
+    const b = document.createElement("span");
+    b.id = "demoBadge";
+    b.textContent = "Read-only demo";
+    b.style.cssText = "margin-left:.6rem;font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:#5f786c;padding:3px 8px;border-radius:999px;vertical-align:middle;white-space:nowrap;";
+    document.getElementById("adminName").insertAdjacentElement("afterend", b);
+  }
   document.getElementById("overviewTitle").textContent = fmtLong(TODAY);
   document.getElementById("scheduleDate").value = TODAY;
   document.getElementById("wiDate").value       = TODAY;
@@ -161,7 +184,7 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
   finally { btn.disabled=false; btn.textContent="Sign In"; }
 });
 
-document.getElementById("logoutBtn").addEventListener("click", () => { ca(); tok=null; sessionRole="admin"; showLogin(); });
+document.getElementById("logoutBtn").addEventListener("click", () => { ca(); tok=null; sessionRole="admin"; if (IS_DEMO) { demoLogin(); } else { showLogin(); } });
 
 // --- Nav ---
 document.querySelectorAll(".desktop-nav button").forEach(b => b.addEventListener("click", () => {
@@ -175,5 +198,6 @@ document.querySelectorAll(".desktop-nav button").forEach(b => b.addEventListener
 // --- Session restore — deferred so all JS files are loaded first ---
 window.addEventListener("load", () => {
   const ex = ga();
-  if (ex) { tok=ex.t; showApp(ex.n, ex.r); }
+  if (ex) { tok=ex.t; showApp(ex.n, ex.r); return; }
+  if (IS_DEMO) demoLogin();
 });
