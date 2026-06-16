@@ -281,7 +281,7 @@ def _extract_json_object(raw: str) -> Dict[str, Any]:
 
 def detect_intent(message: str) -> Dict[str, Any]:
     """
-    Classify message intent — regex first, Ollama only for unknown intents.
+    Classify message intent — regex first, the LLM only for unknown intents.
     Always returns a fully populated dict: intent + all extracted fields.
     """
     regex_result = _regex_fallback(message)

@@ -25,35 +25,27 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
+# The admin agent runs on Anthropic Claude (see app/llm.py — model is set by
+# the LLM_MODEL env var). Routing is deterministic (regex/intent classification
+# first), so the only knob worth keeping here is the request timeout.
 
 class OrchestratorConfig:
-    routing_model: str = "qwen2.5:3b"   # Intent classification fallback
-    answer_model:  str = "qwen2.5:3b"    # Plain-text answer generation
-    timeout:       int = 60
-    ollama_url:    str = "http://127.0.0.1:11434"
+    timeout: int = 60
 
 
 _config = OrchestratorConfig()
 
 
-def configure(
-    model: str = None,
-    answer_model: str = None,
-    timeout: int = None,
-    ollama_url: str = None,
-) -> None:
-    if model:        _config.routing_model = model
-    if answer_model: _config.answer_model  = answer_model
-    if timeout:      _config.timeout       = timeout
-    if ollama_url:   _config.ollama_url    = ollama_url
+def configure(timeout: int = None) -> None:
+    if timeout:
+        _config.timeout = timeout
 
 
 # ---------------------------------------------------------------------------
 # LLM communication
 # ---------------------------------------------------------------------------
 
-def _call_llm(prompt: str, model: str = None, strict: bool = False) -> str:
-    use_model = model or _config.answer_model
+def _call_llm(prompt: str, strict: bool = False) -> str:
     if strict:
         system = (
             "You are a concise administrative assistant for PureZen Spa. "
@@ -63,18 +55,16 @@ def _call_llm(prompt: str, model: str = None, strict: bool = False) -> str:
             "Never mention internal tool names or data field names. "
             "Just state the facts clearly."
         )
-        full_prompt = f"{system}\n\n{prompt}"
-    else:
-        full_prompt = prompt
-
-    # Admin LLM now runs on Anthropic (same provider as the customer chat) so
-    # it works on Lambda — no local Ollama server required. The `strict` system
-    # prompt is passed through `call_llm`'s `system` argument; non-strict
-    # callers send the prompt verbatim.
-    try:
-        if strict:
+        # The `strict` system prompt is passed through call_llm's `system`
+        # argument; non-strict callers send the prompt verbatim.
+        try:
             return call_llm(prompt, system=system).strip()
-        return call_llm(full_prompt).strip()
+        except Exception as exc:
+            log.warning("LLM call failed: %s", exc)
+            return ""
+
+    try:
+        return call_llm(prompt).strip()
     except Exception as exc:
         log.warning("LLM call failed: %s", exc)
         return ""
@@ -89,7 +79,7 @@ def _clean(raw: str) -> str:
         lower = line.lower()
         if any(lower.startswith(p) for p in (
             "warm regards", "regards", "sincerely", "best regards",
-            "owen", "qwen", "llama", "how can i", "let me know",
+            "how can i", "let me know",
             "feel free", "if you", "please let", "i hope",
             "note:", "please note",
         )):
@@ -103,7 +93,7 @@ def _clean(raw: str) -> str:
 # ---------------------------------------------------------------------------
 
 def llm(prompt: str) -> str:
-    raw    = _call_llm(prompt, model=_config.answer_model, strict=True)
+    raw    = _call_llm(prompt, strict=True)
     result = _clean(raw)
     return result or "No summary available."
 
@@ -421,7 +411,7 @@ def _answer(question: str, tool_result: str, intent: Dict[str, Any], data_fns: D
             "Do NOT mention any customer names. "
             "Reference specific numbers from the data. No intro. No sign-off. No questions."
         )
-        raw = _call_llm(prompt, model=_config.answer_model, strict=False)
+        raw = _call_llm(prompt, strict=False)
         return raw.strip() or "Unable to generate recommendation."
         log.warning("RECO RAW LEN=%d: %s", len(raw), raw[:200])
     else:
@@ -431,7 +421,7 @@ def _answer(question: str, tool_result: str, intent: Dict[str, Any], data_fns: D
             "Answer in 2-3 sentences. Use only the data above. "
             "State facts directly. No JSON. No questions. No sign-off."
         )
-        raw = _call_llm(prompt, model=_config.answer_model, strict=True)
+        raw = _call_llm(prompt, strict=True)
     result = _clean(raw)
     log.warning("CLEAN RESULT LEN=%d: %s", len(result), result[:200])
     return result or "I could not find a complete answer."
@@ -456,7 +446,7 @@ def orchestrate(question: str, data_fns: Dict[str, Callable]) -> str:
     """
     intent = classify(
         question,
-        llm_fn=lambda p: _call_llm(p, model=_config.routing_model, strict=False),
+        llm_fn=lambda p: _call_llm(p, strict=False),
     )
 
     log.info(

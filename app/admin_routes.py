@@ -18,7 +18,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.config import AWS_REGION, OLLAMA_URL
+from app.config import AWS_REGION
 from app.dynamodb_client import get_availability_table
 from app.bookings import cancel_booking, reschedule_booking
 from app.admin_orchestrator import llm, orchestrate, configure as configure_llm
@@ -37,7 +37,7 @@ admins_table = dynamodb.Table(ADMINS_TABLE)
 users_table  = dynamodb.Table(USERS_TABLE)
 staff_table  = dynamodb.Table(STAFF_TABLE)
 
-configure_llm(model="llama3.2:3b", timeout=60, ollama_url=OLLAMA_URL)
+configure_llm(timeout=60)
 
 
 # ---------------------------------------------------------------------------
