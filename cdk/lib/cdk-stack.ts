@@ -38,7 +38,7 @@ export class PureZenStack extends cdk.Stack {
       partitionKey: { name: 'admin_id', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
-      pointInTimeRecovery: true,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
     adminsTable.addGlobalSecondaryIndex({
       indexName: 'token-index',
@@ -52,7 +52,7 @@ export class PureZenStack extends cdk.Stack {
       partitionKey: { name: 'staff_id', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
-      pointInTimeRecovery: true,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
     staffTable.addGlobalSecondaryIndex({
       indexName: 'token-index',
