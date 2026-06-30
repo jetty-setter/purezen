@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from boto3.dynamodb.conditions import Attr, Key
 
 from app.dynamodb_client import get_availability_table
+from app.db_utils import convert_decimal, scan_all
 
 
 # ---------------------------------------------------------------------------
@@ -24,35 +24,10 @@ TIME_OF_DAY_HOURS: Dict[str, tuple] = {
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _convert_decimal(value: Any) -> Any:
-    if isinstance(value, Decimal):
-        return int(value) if value % 1 == 0 else float(value)
-    if isinstance(value, list):
-        return [_convert_decimal(v) for v in value]
-    if isinstance(value, dict):
-        return {k: _convert_decimal(v) for k, v in value.items()}
-    return value
-
 
 def _normalize_text(value: str) -> str:
     return " ".join(str(value or "").strip().lower().split())
 
-
-def _safe_scan_all(table, filter_expression=None) -> List[Dict[str, Any]]:
-    scan_kwargs = {}
-    if filter_expression is not None:
-        scan_kwargs["FilterExpression"] = filter_expression
-
-    items: List[Dict[str, Any]] = []
-    response = table.scan(**scan_kwargs)
-    items.extend(response.get("Items", []))
-
-    while "LastEvaluatedKey" in response:
-        scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
-        response = table.scan(**scan_kwargs)
-        items.extend(response.get("Items", []))
-
-    return items
 
 
 def _names_match(requested_name: str, actual_name: str) -> bool:
@@ -70,7 +45,7 @@ def _names_match(requested_name: str, actual_name: str) -> bool:
 
 
 def _format_slot(item: Dict[str, Any]) -> Dict[str, Any]:
-    item = _convert_decimal(item)
+    item = convert_decimal(item)
 
     formatted = {
         "slot_id":          item.get("slot_id"),
@@ -214,7 +189,7 @@ def get_available_slots_for_service(
                 Key("date").eq(requested_date) & Key("status").eq("AVAILABLE")
             ),
         )
-        all_items = [_convert_decimal(item) for item in response.get("Items", [])]
+        all_items = [convert_decimal(item) for item in response.get("Items", [])]
         # Handle pagination on GSI query
         while "LastEvaluatedKey" in response:
             response = availability_table.query(
@@ -224,10 +199,9 @@ def get_available_slots_for_service(
                 ),
                 ExclusiveStartKey=response["LastEvaluatedKey"],
             )
-            all_items.extend([_convert_decimal(i) for i in response.get("Items", [])])
+            all_items.extend([convert_decimal(i) for i in response.get("Items", [])])
     else:
-        all_items = _safe_scan_all(availability_table, Attr("status").eq("AVAILABLE"))
-        all_items = [_convert_decimal(item) for item in all_items]
+        all_items = scan_all(availability_table, Attr("status").eq("AVAILABLE"))
 
     # Filter to AVAILABLE in application layer — guards against GSI eventual consistency
     # without doing a separate get_item per slot (which would blow out read capacity)
@@ -279,11 +253,10 @@ def format_slots_for_response(slots: List[Dict[str, Any]]) -> str:
 def debug_service_availability(service_name: str, requested_date: str) -> Dict[str, Any]:
     availability_table = get_availability_table()
 
-    all_items = _safe_scan_all(
+    all_items = scan_all(
         availability_table,
         Attr("status").eq("AVAILABLE") & Attr("date").eq(requested_date),
     )
-    all_items = [_convert_decimal(item) for item in all_items]
 
     matching = [
         item for item in all_items

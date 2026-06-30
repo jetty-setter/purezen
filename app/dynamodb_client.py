@@ -1,13 +1,8 @@
-import os
 from functools import lru_cache
 
 import boto3
 
-
-AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-
-SERVICES_TABLE_NAME = os.getenv("SERVICES_TABLE", "purezen_services")
-AVAILABILITY_TABLE_NAME = os.getenv("AVAILABILITY_TABLE", "purezen_availability")
+from app.config import AWS_REGION, SERVICES_TABLE as SERVICES_TABLE_NAME, AVAILABILITY_TABLE as AVAILABILITY_TABLE_NAME
 
 
 @lru_cache

@@ -16,7 +16,7 @@ const DEMO_TOKEN = "demo-admin";
 
 function demoLogin() {
   tok = DEMO_TOKEN;
-  sa(DEMO_TOKEN, "Demo Admin", "admin");
+  saveSession(DEMO_TOKEN, "Demo Admin", "admin");
   showApp("Demo Admin", "admin");
 }
 
@@ -32,9 +32,9 @@ const TODAY = (()=>{
 })();
 
 // --- Session helpers ---
-const sa = (t,n,r) => { sessionStorage.setItem("pz_at",t); sessionStorage.setItem("pz_an",n); sessionStorage.setItem("pz_ar",r||"admin"); };
-const ca = ()      => { sessionStorage.removeItem("pz_at"); sessionStorage.removeItem("pz_an"); sessionStorage.removeItem("pz_ar"); };
-const ga = ()      => { const t=sessionStorage.getItem("pz_at"),n=sessionStorage.getItem("pz_an"),r=sessionStorage.getItem("pz_ar"); return t?{t,n,r}:null; };
+const saveSession  = (token, name, role) => { sessionStorage.setItem("pz_at", token); sessionStorage.setItem("pz_an", name); sessionStorage.setItem("pz_ar", role || "admin"); };
+const clearSession = ()                   => { sessionStorage.removeItem("pz_at"); sessionStorage.removeItem("pz_an"); sessionStorage.removeItem("pz_ar"); };
+const getSession   = ()                   => { const token = sessionStorage.getItem("pz_at"), name = sessionStorage.getItem("pz_an"), role = sessionStorage.getItem("pz_ar"); return token ? { t: token, n: name, r: role } : null; };
 
 let sessionRole = "admin";
 
@@ -174,17 +174,17 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
     // Try admin login first
     let r = await fetch(`${API}/admin/login`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pw})});
     let d = await r.json();
-    if (r.ok) { tok=d.token; sa(d.token,d.name,"admin"); showApp(d.name,"admin"); return; }
+    if (r.ok) { tok=d.token; saveSession(d.token,d.name,"admin"); showApp(d.name,"admin"); return; }
     // Fall through to staff login
     r = await fetch(`${API}/admin/staff/login`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pw})});
     d = await r.json();
-    if (r.ok) { tok=d.token; sa(d.token,d.name,"staff"); showApp(d.name,"staff"); return; }
+    if (r.ok) { tok=d.token; saveSession(d.token,d.name,"staff"); showApp(d.name,"staff"); return; }
     err.textContent=d.detail||"Login failed."; err.style.display="block";
   } catch { err.textContent="Could not connect."; err.style.display="block"; }
   finally { btn.disabled=false; btn.textContent="Sign In"; }
 });
 
-document.getElementById("logoutBtn").addEventListener("click", () => { ca(); tok=null; sessionRole="admin"; if (IS_DEMO) { demoLogin(); } else { showLogin(); } });
+document.getElementById("logoutBtn").addEventListener("click", () => { clearSession(); tok=null; sessionRole="admin"; if (IS_DEMO) { demoLogin(); } else { showLogin(); } });
 
 // --- Nav ---
 document.querySelectorAll(".desktop-nav button").forEach(b => b.addEventListener("click", () => {
@@ -197,7 +197,7 @@ document.querySelectorAll(".desktop-nav button").forEach(b => b.addEventListener
 
 // --- Session restore — deferred so all JS files are loaded first ---
 window.addEventListener("load", () => {
-  const ex = ga();
+  const ex = getSession();
   if (ex) { tok=ex.t; showApp(ex.n, ex.r); return; }
   if (IS_DEMO) demoLogin();
 });

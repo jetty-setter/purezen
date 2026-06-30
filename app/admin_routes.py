@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import functools
 import io
 import logging
 import os
@@ -8,7 +9,6 @@ import time
 import uuid
 from collections import Counter
 from datetime import datetime, timedelta
-from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 import bcrypt
@@ -22,6 +22,7 @@ from app.config import AWS_REGION
 from app.dynamodb_client import get_availability_table
 from app.bookings import cancel_booking, reschedule_booking
 from app.admin_orchestrator import llm, orchestrate, configure as configure_llm
+from app.db_utils import convert_decimal, scan_all, format_display_date
 
 log = logging.getLogger(__name__)
 
@@ -32,10 +33,20 @@ TOKEN_TTL_SECS = 86400  # 24 hours
 
 router = APIRouter(prefix="/admin")
 
-dynamodb     = boto3.resource("dynamodb", region_name=AWS_REGION)
-admins_table = dynamodb.Table(ADMINS_TABLE)
-users_table  = dynamodb.Table(USERS_TABLE)
-staff_table  = dynamodb.Table(STAFF_TABLE)
+
+@functools.lru_cache(maxsize=1)
+def get_admins_table():
+    return boto3.resource("dynamodb", region_name=AWS_REGION).Table(ADMINS_TABLE)
+
+
+@functools.lru_cache(maxsize=1)
+def get_users_table():
+    return boto3.resource("dynamodb", region_name=AWS_REGION).Table(USERS_TABLE)
+
+
+@functools.lru_cache(maxsize=1)
+def get_staff_table():
+    return boto3.resource("dynamodb", region_name=AWS_REGION).Table(STAFF_TABLE)
 
 configure_llm(timeout=60)
 
@@ -140,43 +151,6 @@ class WalkInRequest(BaseModel):
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-def _convert_decimal(value: Any) -> Any:
-    if isinstance(value, Decimal):
-        return int(value) if value % 1 == 0 else float(value)
-    if isinstance(value, list):
-        return [_convert_decimal(v) for v in value]
-    if isinstance(value, dict):
-        return {k: _convert_decimal(v) for k, v in value.items()}
-    return value
-
-
-def _scan_all(table, filter_expression=None) -> List[Dict[str, Any]]:
-    kwargs = {}
-    if filter_expression is not None:
-        kwargs["FilterExpression"] = filter_expression
-    items: List[Dict[str, Any]] = []
-    response = table.scan(**kwargs)
-    items.extend(response.get("Items", []))
-    while "LastEvaluatedKey" in response:
-        kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
-        response = table.scan(**kwargs)
-        items.extend(response.get("Items", []))
-    return [_convert_decimal(item) for item in items]
-
-
-def _format_display_date(value: str) -> str:
-    raw = (value or "").strip()
-    if not raw:
-        return "Unknown"
-    try:
-        parsed = datetime.strptime(raw, "%Y-%m-%d")
-        try:
-            return parsed.strftime("%B %-d, %Y")
-        except Exception:
-            return parsed.strftime("%B %d, %Y").replace(" 0", " ")
-    except Exception:
-        return raw
-
 
 def _booking_status_label(slot: Dict[str, Any]) -> str:
     status = str(slot.get("status", "")).upper()
@@ -197,7 +171,7 @@ def _format_booking(slot: Dict[str, Any]) -> Dict[str, Any]:
         "slot_id":          slot.get("slot_id"),
         "service_name":     slot.get("service_name", "Unknown"),
         "date":             slot.get("date"),
-        "date_display":     _format_display_date(str(slot.get("date", ""))),
+        "date_display":     format_display_date(str(slot.get("date", ""))),
         "start_time":       slot.get("start_time"),
         "end_time":         slot.get("end_time"),
         "staff_name":       slot.get("staff_name"),
@@ -213,7 +187,7 @@ def _format_booking(slot: Dict[str, Any]) -> Dict[str, Any]:
 
 def _get_all_bookings() -> List[Dict[str, Any]]:
     table     = get_availability_table()
-    all_slots = _scan_all(table)
+    all_slots = scan_all(table)
     booked    = [s for s in all_slots if str(s.get("status", "")).upper() in ("BOOKED", "CANCELLED") and s.get("booking_id")]
     formatted = [_format_booking(s) for s in booked]
     formatted.sort(key=lambda b: (b.get("date") or "", b.get("start_time") or ""))
@@ -224,40 +198,43 @@ def _get_data_fns() -> Dict[str, Any]:
     """Inject data access callables into the orchestrator."""
     return {
         "get_all_bookings": _get_all_bookings,
-        "scan_staff":       lambda: _scan_all(staff_table),
+        "scan_staff":       lambda: scan_all(get_staff_table()),
     }
 
 
 def _verify_admin_token(token: str) -> bool:
+    # TODO: add GSI on 'token' attribute — currently O(n) table scan on every authenticated request
     if _is_demo(token):
         return True
     try:
-        return len(admins_table.scan(FilterExpression=Attr("token").eq(token)).get("Items", [])) > 0
+        return len(get_admins_table().scan(FilterExpression=Attr("token").eq(token)).get("Items", [])) > 0
     except Exception:
         return False
 
 
 def _verify_staff_token(token: str) -> bool:
+    # TODO: add GSI on 'token' attribute — currently O(n) table scan on every authenticated request
     if _is_demo(token):
         return True
     try:
-        if admins_table.scan(FilterExpression=Attr("token").eq(token)).get("Items"):
+        if get_admins_table().scan(FilterExpression=Attr("token").eq(token)).get("Items"):
             return True
-        items = staff_table.scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
+        items = get_staff_table().scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
         return bool(items) and items[0].get("is_active", True)
     except Exception:
         return False
 
 
 def _verify_any_token(token: str) -> Optional[Dict[str, Any]]:
+    # TODO: add GSI on 'token' attribute — currently O(n) table scan on every authenticated request
     if _is_demo(token):
         return {"role": "admin", "name": "Demo Admin", "id": "demo-admin"}
     try:
-        items = admins_table.scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
+        items = get_admins_table().scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
         if items and items[0].get("active", True):
             a = items[0]
             return {"role": "admin", "name": a.get("name", "Admin"), "id": a.get("admin_id")}
-        items2 = staff_table.scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
+        items2 = get_staff_table().scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
         if items2 and items2[0].get("is_active", True):
             s = items2[0]
             return {"role": "staff", "name": s.get("display_name") or f"{s.get('first_name','')} {s.get('last_name','')}".strip(), "id": s.get("staff_id")}
@@ -282,7 +259,7 @@ def _build_schedule_text(bookings: List[Dict[str, Any]]) -> str:
 @router.post("/login")
 def admin_login(request: AdminLoginRequest) -> Dict[str, Any]:
     email    = request.email.lower().strip()
-    items    = admins_table.scan(FilterExpression=Attr("email").eq(email)).get("Items", [])
+    items    = get_admins_table().scan(FilterExpression=Attr("email").eq(email)).get("Items", [])
     if not items:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     admin = items[0]
@@ -290,14 +267,14 @@ def admin_login(request: AdminLoginRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     token   = uuid.uuid4().hex
     expires = int(time.time()) + TOKEN_TTL_SECS
-    admins_table.update_item(Key={"admin_id": admin["admin_id"]}, UpdateExpression="SET #t = :t, token_expires_at = :e", ExpressionAttributeNames={"#t": "token"}, ExpressionAttributeValues={":t": token, ":e": expires})
+    get_admins_table().update_item(Key={"admin_id": admin["admin_id"]}, UpdateExpression="SET #t = :t, token_expires_at = :e", ExpressionAttributeNames={"#t": "token"}, ExpressionAttributeValues={":t": token, ":e": expires})
     return {"success": True, "token": token, "name": admin.get("name"), "email": email}
 
 
 @router.post("/staff/login")
 def staff_login(request: StaffLoginRequest) -> Dict[str, Any]:
     email = request.email.lower().strip()
-    items = staff_table.scan(FilterExpression=Attr("email").eq(email)).get("Items", [])
+    items = get_staff_table().scan(FilterExpression=Attr("email").eq(email)).get("Items", [])
     if not items:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     staff = items[0]
@@ -310,7 +287,7 @@ def staff_login(request: StaffLoginRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     token   = uuid.uuid4().hex
     expires = int(time.time()) + TOKEN_TTL_SECS
-    staff_table.update_item(Key={"staff_id": staff["staff_id"]}, UpdateExpression="SET #t = :t, token_expires_at = :e", ExpressionAttributeNames={"#t": "token"}, ExpressionAttributeValues={":t": token, ":e": expires})
+    get_staff_table().update_item(Key={"staff_id": staff["staff_id"]}, UpdateExpression="SET #t = :t, token_expires_at = :e", ExpressionAttributeNames={"#t": "token"}, ExpressionAttributeValues={":t": token, ":e": expires})
     display = staff.get("display_name") or f"{staff.get('first_name','')} {staff.get('last_name','')}".strip()
     return {"success": True, "token": token, "name": display, "role": "staff"}
 
@@ -320,9 +297,9 @@ def admin_logout(token: str) -> Dict[str, Any]:
     """Invalidate an admin or staff session token in DynamoDB."""
     try:
         # Check admins table
-        items = admins_table.scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
+        items = get_admins_table().scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
         if items:
-            admins_table.update_item(
+            get_admins_table().update_item(
                 Key={"admin_id": items[0]["admin_id"]},
                 UpdateExpression="SET #t = :t",
                 ExpressionAttributeNames={"#t": "token"},
@@ -331,9 +308,9 @@ def admin_logout(token: str) -> Dict[str, Any]:
             return {"success": True, "message": "Logged out."}
 
         # Check staff table
-        items2 = staff_table.scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
+        items2 = get_staff_table().scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
         if items2:
-            staff_table.update_item(
+            get_staff_table().update_item(
                 Key={"staff_id": items2[0]["staff_id"]},
                 UpdateExpression="SET #t = :t",
                 ExpressionAttributeNames={"#t": "token"},
@@ -468,7 +445,7 @@ def admin_cancel_booking(request: AdminCancelRequest, token: str) -> Dict[str, A
     _block_if_demo(token)
     if not _verify_staff_token(token): raise HTTPException(status_code=401, detail="Unauthorized.")
     table     = get_availability_table()
-    all_slots = _scan_all(table)
+    all_slots = scan_all(table)
     slot      = next((s for s in all_slots if s.get("booking_id") == request.booking_id), None)
     result    = cancel_booking(request.booking_id)
     if not result.get("success"): raise HTTPException(status_code=400, detail=result.get("message"))
@@ -483,7 +460,7 @@ def _send_cancel_email(slot: Dict[str, Any]) -> None:
     name       = slot.get("customer_name", "Valued Guest")
     email      = slot.get("customer_email")
     service    = slot.get("service_name", "your appointment")
-    date_str   = _format_display_date(str(slot.get("date", "")))
+    date_str   = format_display_date(str(slot.get("date", "")))
     time_str   = slot.get("start_time", "")
     staff      = slot.get("staff_name", "our team")
     booking_id = slot.get("booking_id", "")
@@ -527,14 +504,14 @@ def ai_schedule_summary(token: str, date: str) -> Dict[str, Any]:
     is_today = date == datetime.utcnow().date().isoformat()
     focus    = upcoming if is_today and upcoming else all_day
     if not focus:
-        return {"date": date, "summary": f"No upcoming appointments for {_format_display_date(date)}."}
+        return {"date": date, "summary": f"No upcoming appointments for {format_display_date(date)}."}
     count    = len(focus)
     staff    = list({b.get("staff_name") for b in focus if b.get("staff_name")})
     services = list({b.get("service_name") for b in focus if b.get("service_name")})
     if is_today:
         prompt = (f"Right now at PureZen, there are {count} appointments still to come today. Staff on duty: {', '.join(staff) if staff else 'None'}. Services: {', '.join(services) if services else 'None'}.\n\nWrite exactly 2 sentences in present tense. No questions. No sign-off.")
     else:
-        prompt = (f"Date: {_format_display_date(date)}. Appointments: {count}. Staff: {', '.join(staff) if staff else 'None'}. Services: {', '.join(services) if services else 'None'}.\n\nWrite exactly 2 sentences. No questions. No sign-off.")
+        prompt = (f"Date: {format_display_date(date)}. Appointments: {count}. Staff: {', '.join(staff) if staff else 'None'}. Services: {', '.join(services) if services else 'None'}.\n\nWrite exactly 2 sentences. No questions. No sign-off.")
     return {"date": date, "summary": llm(prompt)}
 
 
@@ -543,7 +520,7 @@ def ai_conflict_check(token: str, date: str) -> Dict[str, Any]:
     if not _verify_staff_token(token): raise HTTPException(status_code=401, detail="Unauthorized.")
     bookings = [b for b in _get_all_bookings() if b.get("date") == date and b.get("status") != "Cancelled"]
     if not bookings:
-        return {"date": date, "conflicts": f"No appointments on {_format_display_date(date)}."}
+        return {"date": date, "conflicts": f"No appointments on {format_display_date(date)}."}
     from collections import defaultdict
     def normalize_time(t):
         if not t: return ""
@@ -566,7 +543,7 @@ def ai_trends_narrative(token: str, date_from: Optional[str] = None, date_to: Op
     trends      = get_trends(token, date_from=date_from, date_to=date_to)
     top_service = next(iter(trends["by_service"]), "N/A")
     top_staff   = next(iter(trends["by_staff"]), "N/A")
-    date_range  = f" ({_format_display_date(date_from)} – {_format_display_date(date_to)})" if date_from and date_to else (f" (from {_format_display_date(date_from)})" if date_from else (f" (up to {_format_display_date(date_to)})" if date_to else ""))
+    date_range  = f" ({format_display_date(date_from)} – {format_display_date(date_to)})" if date_from and date_to else (f" (from {format_display_date(date_from)})" if date_from else (f" (up to {format_display_date(date_to)})" if date_to else ""))
     prompt = (f"PureZen Spa data{date_range}: {trends['total_bookings']} bookings, {trends['cancellation_rate']}% cancellation rate, top service: {top_service}, top staff: {top_staff}, peak hour: {trends['peak_hour']}.\n\nRespond in EXACTLY this format:\nObservation 1: [one factual sentence about booking volume or trends]\nObservation 2: [one factual sentence about service or staff performance]\nActionable Recommendation: [one specific, practical suggestion]\n\nNo intro. No sign-off. No extra sentences.")
     return {"narrative": llm(prompt)}
 
@@ -614,10 +591,10 @@ def get_walkin_slots(token: str, date: str) -> List[Dict[str, Any]]:
     from collections import defaultdict
     table    = get_availability_table()
     response = table.scan(FilterExpression=Attr("date").eq(date) & Attr("status").eq("AVAILABLE"))
-    items    = [_convert_decimal(i) for i in response.get("Items", [])]
+    items    = [convert_decimal(i) for i in response.get("Items", [])]
     while "LastEvaluatedKey" in response:
         response = table.scan(FilterExpression=Attr("date").eq(date) & Attr("status").eq("AVAILABLE"), ExclusiveStartKey=response["LastEvaluatedKey"])
-        items += [_convert_decimal(i) for i in response.get("Items", [])]
+        items += [convert_decimal(i) for i in response.get("Items", [])]
     grouped: Dict[str, List[Dict]] = defaultdict(list)
     for item in items:
         t = item.get("start_time") or ""
@@ -654,7 +631,7 @@ def set_staff_password(request: SetStaffPasswordRequest) -> Dict[str, Any]:
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     if len(request.password) < 8: raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
     pw_hash = bcrypt.hashpw(request.password.encode(), bcrypt.gensalt()).decode()
-    staff_table.update_item(Key={"staff_id": request.staff_id}, UpdateExpression="SET password_hash = :h", ExpressionAttributeValues={":h": pw_hash})
+    get_staff_table().update_item(Key={"staff_id": request.staff_id}, UpdateExpression="SET password_hash = :h", ExpressionAttributeValues={":h": pw_hash})
     return {"success": True, "message": "Password set successfully."}
 
 
@@ -665,7 +642,7 @@ def set_staff_password(request: SetStaffPasswordRequest) -> Dict[str, Any]:
 @router.get("/users/admins")
 def list_admins(token: str) -> List[Dict[str, Any]]:
     if not _verify_admin_token(token): raise HTTPException(status_code=401, detail="Unauthorized.")
-    return [{"admin_id": a.get("admin_id"), "name": a.get("name"), "email": a.get("email"), "active": a.get("active", True)} for a in _scan_all(admins_table)]
+    return [{"admin_id": a.get("admin_id"), "name": a.get("name"), "email": a.get("email"), "active": a.get("active", True)} for a in scan_all(get_admins_table())]
 
 
 @router.post("/users/admins/create")
@@ -673,11 +650,11 @@ def create_admin(request: CreateAdminRequest) -> Dict[str, Any]:
     _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     email = request.email.lower().strip()
-    if admins_table.scan(FilterExpression=Attr("email").eq(email)).get("Items"):
+    if get_admins_table().scan(FilterExpression=Attr("email").eq(email)).get("Items"):
         raise HTTPException(status_code=409, detail="An admin with this email already exists.")
     pw_hash = bcrypt.hashpw(request.password.encode(), bcrypt.gensalt()).decode()
     admin_id = f"adm_{uuid.uuid4().hex[:12]}"
-    admins_table.put_item(Item={"admin_id": admin_id, "name": request.name.strip(), "email": email, "password_hash": pw_hash, "active": True, "created_at": datetime.utcnow().isoformat(), "token": ""})
+    get_admins_table().put_item(Item={"admin_id": admin_id, "name": request.name.strip(), "email": email, "password_hash": pw_hash, "active": True, "created_at": datetime.utcnow().isoformat(), "token": ""})
     return {"success": True, "admin_id": admin_id, "message": f"Admin {request.name} created."}
 
 
@@ -685,10 +662,10 @@ def create_admin(request: CreateAdminRequest) -> Dict[str, Any]:
 def deactivate_admin(request: AdminActionRequest) -> Dict[str, Any]:
     _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
-    caller = admins_table.scan(FilterExpression=Attr("token").eq(request.token)).get("Items", [])
+    caller = get_admins_table().scan(FilterExpression=Attr("token").eq(request.token)).get("Items", [])
     if caller and caller[0].get("admin_id") == request.admin_id:
         raise HTTPException(status_code=400, detail="You cannot deactivate your own account.")
-    admins_table.update_item(Key={"admin_id": request.admin_id}, UpdateExpression="SET active = :v", ExpressionAttributeValues={":v": False})
+    get_admins_table().update_item(Key={"admin_id": request.admin_id}, UpdateExpression="SET active = :v", ExpressionAttributeValues={":v": False})
     return {"success": True, "message": "Admin deactivated."}
 
 
@@ -696,7 +673,7 @@ def deactivate_admin(request: AdminActionRequest) -> Dict[str, Any]:
 def reactivate_admin(request: AdminActionRequest) -> Dict[str, Any]:
     _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
-    admins_table.update_item(Key={"admin_id": request.admin_id}, UpdateExpression="SET active = :v", ExpressionAttributeValues={":v": True})
+    get_admins_table().update_item(Key={"admin_id": request.admin_id}, UpdateExpression="SET active = :v", ExpressionAttributeValues={":v": True})
     return {"success": True, "message": "Admin reactivated."}
 
 
@@ -706,7 +683,7 @@ def reset_admin_password(request: ResetAdminPasswordRequest) -> Dict[str, Any]:
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     if len(request.password) < 8: raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
     pw_hash = bcrypt.hashpw(request.password.encode(), bcrypt.gensalt()).decode()
-    admins_table.update_item(Key={"admin_id": request.admin_id}, UpdateExpression="SET password_hash = :h, #t = :t", ExpressionAttributeNames={"#t": "token"}, ExpressionAttributeValues={":h": pw_hash, ":t": ""})
+    get_admins_table().update_item(Key={"admin_id": request.admin_id}, UpdateExpression="SET password_hash = :h, #t = :t", ExpressionAttributeNames={"#t": "token"}, ExpressionAttributeValues={":h": pw_hash, ":t": ""})
     return {"success": True, "message": "Admin password reset successfully."}
 
 
@@ -717,7 +694,7 @@ def reset_admin_password(request: ResetAdminPasswordRequest) -> Dict[str, Any]:
 @router.get("/users/customers")
 def list_customers(token: str) -> List[Dict[str, Any]]:
     if not _verify_admin_token(token): raise HTTPException(status_code=401, detail="Unauthorized.")
-    items          = _scan_all(users_table)
+    items          = scan_all(get_users_table())
     booking_counts = Counter((b.get("customer_email") or "").lower() for b in _get_all_bookings())
     result = [{"user_id": u.get("user_id"), "name": u.get("name"), "email": (u.get("email") or "").lower(), "phone": u.get("phone"), "created_at": u.get("created_at"), "active": u.get("active", True), "bookings": booking_counts.get((u.get("email") or "").lower(), 0)} for u in items]
     result.sort(key=lambda x: x.get("created_at") or "", reverse=True)
@@ -728,7 +705,7 @@ def list_customers(token: str) -> List[Dict[str, Any]]:
 def deactivate_customer(request: UserActionRequest) -> Dict[str, Any]:
     _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
-    users_table.update_item(Key={"user_id": request.user_id}, UpdateExpression="SET active = :v", ExpressionAttributeValues={":v": False})
+    get_users_table().update_item(Key={"user_id": request.user_id}, UpdateExpression="SET active = :v", ExpressionAttributeValues={":v": False})
     return {"success": True, "message": "Customer account deactivated."}
 
 
@@ -736,7 +713,7 @@ def deactivate_customer(request: UserActionRequest) -> Dict[str, Any]:
 def reactivate_customer(request: UserActionRequest) -> Dict[str, Any]:
     _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
-    users_table.update_item(Key={"user_id": request.user_id}, UpdateExpression="SET active = :v", ExpressionAttributeValues={":v": True})
+    get_users_table().update_item(Key={"user_id": request.user_id}, UpdateExpression="SET active = :v", ExpressionAttributeValues={":v": True})
     return {"success": True, "message": "Customer account reactivated."}
 
 
@@ -748,7 +725,7 @@ def reactivate_customer(request: UserActionRequest) -> Dict[str, Any]:
 def list_staff(token: str) -> List[Dict[str, Any]]:
     if not _verify_admin_token(token): raise HTTPException(status_code=401, detail="Unauthorized.")
     result = []
-    for s in _scan_all(staff_table):
+    for s in scan_all(get_staff_table()):
         skills = [sk if isinstance(sk, str) else str(sk) for sk in s.get("skills", [])]
         result.append({"staff_id": s.get("staff_id"), "first_name": s.get("first_name"), "last_name": s.get("last_name"), "display_name": s.get("display_name"), "role": s.get("role"), "email": s.get("email"), "employment_type": s.get("employment_type"), "weekly_hours_limit": s.get("weekly_hours_limit"), "skills": skills, "is_active": s.get("is_active", True), "location_id": s.get("location_id", "omaha_main")})
     result.sort(key=lambda x: (x.get("last_name") or "", x.get("first_name") or ""))
@@ -760,7 +737,7 @@ def create_staff(request: CreateStaffRequest) -> Dict[str, Any]:
     _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
     staff_id = f"stf_{uuid.uuid4().hex[:6]}"; display_name = f"{request.first_name} {request.last_name[0]}."
-    staff_table.put_item(Item={"staff_id": staff_id, "first_name": request.first_name.strip(), "last_name": request.last_name.strip(), "display_name": display_name, "role": request.role.strip(), "email": request.email.lower().strip(), "employment_type": request.employment_type, "weekly_hours_limit": request.weekly_hours_limit, "skills": request.skills, "is_active": True, "location_id": request.location_id, "created_at": datetime.utcnow().isoformat()})
+    get_staff_table().put_item(Item={"staff_id": staff_id, "first_name": request.first_name.strip(), "last_name": request.last_name.strip(), "display_name": display_name, "role": request.role.strip(), "email": request.email.lower().strip(), "employment_type": request.employment_type, "weekly_hours_limit": request.weekly_hours_limit, "skills": request.skills, "is_active": True, "location_id": request.location_id, "created_at": datetime.utcnow().isoformat()})
     return {"success": True, "staff_id": staff_id, "display_name": display_name, "message": f"Staff member {display_name} created."}
 
 
@@ -768,5 +745,5 @@ def create_staff(request: CreateStaffRequest) -> Dict[str, Any]:
 def toggle_staff(request: StaffActionRequest) -> Dict[str, Any]:
     _block_if_demo(request.token)
     if not _verify_admin_token(request.token): raise HTTPException(status_code=401, detail="Unauthorized.")
-    staff_table.update_item(Key={"staff_id": request.staff_id}, UpdateExpression="SET is_active = :v", ExpressionAttributeValues={":v": request.is_active})
+    get_staff_table().update_item(Key={"staff_id": request.staff_id}, UpdateExpression="SET is_active = :v", ExpressionAttributeValues={":v": request.is_active})
     return {"success": True, "message": f"Staff member {'activated' if request.is_active else 'deactivated'}."}

@@ -4,6 +4,7 @@
 
 (function () {
   const CONFIG = window.PUREZEN_CONFIG || {};
+  const DEFAULT_TIMEOUT_MS = 30_000;
 
   function buildUrl(path) {
     const base = CONFIG.API_BASE_URL || "";
@@ -26,7 +27,7 @@
    */
   async function sendChatMessage({ sessionId, message, context = {} }) {
     const url = buildUrl(CONFIG.CHAT_ENDPOINT || "/chat");
-    const timeoutMs = CONFIG.REQUEST_TIMEOUT_MS || 30000;
+    const timeoutMs = CONFIG.REQUEST_TIMEOUT_MS || DEFAULT_TIMEOUT_MS;
 
     const payload = { message, context };
     if (sessionId) payload.session_id = sessionId;
@@ -54,7 +55,7 @@
    */
   async function fetchServices() {
     const url = buildUrl(CONFIG.SERVICES_ENDPOINT || "/services");
-    const timeoutMs = CONFIG.REQUEST_TIMEOUT_MS || 30000;
+    const timeoutMs = CONFIG.REQUEST_TIMEOUT_MS || DEFAULT_TIMEOUT_MS;
 
     const response = await withTimeout(
       fetch(url, { method: "GET", headers: { Accept: "application/json" } }),

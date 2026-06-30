@@ -344,6 +344,9 @@ def _format_staff_bookings(data: str, name: str) -> Optional[str]:
         return "\n".join(lines)
     except Exception:
         return None
+
+
+def _format_upcoming(data: str) -> Optional[str]:
     """Format upcoming bookings without LLM."""
     try:
         import json as _json
@@ -413,7 +416,6 @@ def _answer(question: str, tool_result: str, intent: Dict[str, Any], data_fns: D
         )
         raw = _call_llm(prompt, strict=False)
         return raw.strip() or "Unable to generate recommendation."
-        log.warning("RECO RAW LEN=%d: %s", len(raw), raw[:200])
     else:
         prompt = (
             f"Data:\n{data}\n\n"
