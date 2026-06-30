@@ -11,21 +11,16 @@ import { Construct } from 'constructs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
-// The Anthropic API key lives in the repo-root .env (gitignored), the same
-// file used for local runs. Keeping a single source of truth avoids drift.
+// Non-secret deployment settings can live in .env for local CDK runs. Runtime
+// secrets are referenced by SSM parameter name instead of being copied into the
+// Lambda environment during synthesis.
 dotenv.config({ path: path.join(__dirname, '../../.env'), override: true });
-
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable ${name} (set it in purezen/.env)`);
-  }
-  return value;
-}
 
 export class PureZenStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    const anthropicKeyParamName = process.env.ANTHROPIC_KEY_PARAM_NAME || '/purezen/prod/anthropic-api-key';
 
     // ── Lambda function (container image: FastAPI via Mangum) ─────────────
     const fn = new lambda.DockerImageFunction(this, 'PureZenApi', {
@@ -35,8 +30,9 @@ export class PureZenStack extends cdk.Stack {
       memorySize: 1024,
       environment: {
         ENV: 'production',
-        // Customer chat + admin LLM both run on Anthropic now.
-        ANTHROPIC_API_KEY: requiredEnv('ANTHROPIC_API_KEY'),
+        // The API resolves this SecureString at runtime with ssm:GetParameter.
+        // Local runs can still use ANTHROPIC_API_KEY directly.
+        ANTHROPIC_KEY_PARAM_NAME: anthropicKeyParamName,
         LLM_MODEL: process.env.LLM_MODEL || 'claude-haiku-4-5-20251001',
         // Public read-only admin demo: the admin console auto-logs in with a
         // fixed token that the API accepts for reads and blocks for writes.
@@ -47,11 +43,29 @@ export class PureZenStack extends cdk.Stack {
       },
     });
 
-    // ── DynamoDB access scoped to the purezen_* tables ───────────────────
-    // Tables use both naming styles: purezen_* (underscore) and the
-    // purezen-chat-sessions table (hyphen), so cover both prefixes.
+    // ── Runtime secret access ─────────────────────────────────────────────
     fn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['dynamodb:*'],
+      actions: ['ssm:GetParameter'],
+      resources: [
+        `arn:aws:ssm:${this.region}:${this.account}:parameter${anthropicKeyParamName}`,
+      ],
+    }));
+
+    // ── DynamoDB access scoped to the PureZen table prefixes ──────────────
+    // Tables use both naming styles: purezen_* (underscore) and
+    // purezen-* (hyphen), so cover both prefixes while keeping actions narrow.
+    fn.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'dynamodb:BatchGetItem',
+        'dynamodb:BatchWriteItem',
+        'dynamodb:DeleteItem',
+        'dynamodb:DescribeTable',
+        'dynamodb:GetItem',
+        'dynamodb:PutItem',
+        'dynamodb:Query',
+        'dynamodb:Scan',
+        'dynamodb:UpdateItem',
+      ],
       resources: [
         `arn:aws:dynamodb:${this.region}:${this.account}:table/purezen_*`,
         `arn:aws:dynamodb:${this.region}:${this.account}:table/purezen_*/index/*`,
