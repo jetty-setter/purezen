@@ -202,39 +202,47 @@ def _get_data_fns() -> Dict[str, Any]:
     }
 
 
+def _query_by_token(table, token: str) -> list:
+    resp = table.query(
+        IndexName="token-index",
+        KeyConditionExpression="#t = :tok",
+        ExpressionAttributeNames={"#t": "token"},
+        ExpressionAttributeValues={":tok": token},
+        Limit=1,
+    )
+    return resp.get("Items", [])
+
+
 def _verify_admin_token(token: str) -> bool:
-    # TODO: add GSI on 'token' attribute — currently O(n) table scan on every authenticated request
     if _is_demo(token):
         return True
     try:
-        return len(get_admins_table().scan(FilterExpression=Attr("token").eq(token)).get("Items", [])) > 0
+        return len(_query_by_token(get_admins_table(), token)) > 0
     except Exception:
         return False
 
 
 def _verify_staff_token(token: str) -> bool:
-    # TODO: add GSI on 'token' attribute — currently O(n) table scan on every authenticated request
     if _is_demo(token):
         return True
     try:
-        if get_admins_table().scan(FilterExpression=Attr("token").eq(token)).get("Items"):
+        if _query_by_token(get_admins_table(), token):
             return True
-        items = get_staff_table().scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
+        items = _query_by_token(get_staff_table(), token)
         return bool(items) and items[0].get("is_active", True)
     except Exception:
         return False
 
 
 def _verify_any_token(token: str) -> Optional[Dict[str, Any]]:
-    # TODO: add GSI on 'token' attribute — currently O(n) table scan on every authenticated request
     if _is_demo(token):
         return {"role": "admin", "name": "Demo Admin", "id": "demo-admin"}
     try:
-        items = get_admins_table().scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
+        items = _query_by_token(get_admins_table(), token)
         if items and items[0].get("active", True):
             a = items[0]
             return {"role": "admin", "name": a.get("name", "Admin"), "id": a.get("admin_id")}
-        items2 = get_staff_table().scan(FilterExpression=Attr("token").eq(token)).get("Items", [])
+        items2 = _query_by_token(get_staff_table(), token)
         if items2 and items2[0].get("is_active", True):
             s = items2[0]
             return {"role": "staff", "name": s.get("display_name") or f"{s.get('first_name','')} {s.get('last_name','')}".strip(), "id": s.get("staff_id")}

@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigw from 'aws-cdk-lib/aws-apigateway';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -26,6 +27,38 @@ function requiredEnv(name: string): string {
 export class PureZenStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    // ── DynamoDB tables ───────────────────────────────────────────────────
+    // These tables pre-exist. Import them with `cdk import` before the first
+    // deploy so CDK takes ownership without recreating them.
+
+    // purezen_admins — GSI on token for O(1) auth verification
+    const adminsTable = new dynamodb.Table(this, 'AdminsTable', {
+      tableName: 'purezen_admins',
+      partitionKey: { name: 'admin_id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecovery: true,
+    });
+    adminsTable.addGlobalSecondaryIndex({
+      indexName: 'token-index',
+      partitionKey: { name: 'token', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    // purezen_staff — GSI on token for O(1) auth verification
+    const staffTable = new dynamodb.Table(this, 'StaffTable', {
+      tableName: 'purezen_staff',
+      partitionKey: { name: 'staff_id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecovery: true,
+    });
+    staffTable.addGlobalSecondaryIndex({
+      indexName: 'token-index',
+      partitionKey: { name: 'token', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
 
     // ── Lambda function (container image: FastAPI via Mangum) ─────────────
     const fn = new lambda.DockerImageFunction(this, 'PureZenApi', {
