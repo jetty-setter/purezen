@@ -606,6 +606,18 @@ def _handle_comparison(
         session_id
     )
 
+def _match_service_in_text(text: str) -> Optional[str]:
+    """Scan text for the name of a known service; return canonical name or None."""
+    svcs = _all_services()
+    text_lower = text.lower()
+    # Longer names first so "deep tissue massage" beats "massage"
+    for svc in sorted(svcs, key=lambda s: len(_service_name(s)), reverse=True):
+        name = _service_name(svc)
+        if name and name.lower() in text_lower:
+            return name
+    return None
+
+
 def _handle_recommendation(
     message: str,
     msg: str,
@@ -623,6 +635,12 @@ def _handle_recommendation(
     try:
         response = call_llm(prompt, system=_PLAIN_STYLE)
         if response and len(response.strip()) > 20:
+            # Remember which service was recommended so the next "yes / yes tomorrow"
+            # can continue straight into booking without losing context.
+            recommended = _match_service_in_text(response)
+            if recommended:
+                state = get_session_state(session_id)
+                state["pending_recommendation_service"] = recommended
             return _response(response.strip(), session_id)
     except Exception as exc:
         log.warning("_handle_recommendation LLM failed: %s", exc)
@@ -875,6 +893,26 @@ def _handle_chat_inner(
             "I lost track of the available slots. What service and date would you like to book?",
             session_id,
         )
+
+    # ── 4c. Recommendation follow-up ("yes", "yes tomorrow", "that works") ──
+    pending_rec = state.get("pending_recommendation_service")
+    if pending_rec:
+        _AFFIRMATIVES = {"yes", "yeah", "yep", "yup", "sure", "ok", "okay",
+                         "sounds good", "that works", "that sounds good", "perfect",
+                         "great", "let's do it", "lets do it", "book it", "i'd like that"}
+        is_affirmative = any(a in msg for a in _AFFIRMATIVES) or msg.strip() in _AFFIRMATIVES
+        date = _extract_date(message)
+        if is_affirmative or date:
+            state.pop("pending_recommendation_service", None)
+            if date:
+                return _present_slots(pending_rec, date, _extract_time_of_day(msg), session_id)
+            # Affirmative but no date — ask for one
+            _set_pending_service(session_id, pending_rec)
+            state["awaiting_booking_date"] = True
+            return _response(
+                f"What date would you like to book your {pending_rec}?",
+                session_id,
+            )
 
     # ── 5. Date follow-up (service known, waiting for date) ───────────────
     if state.get("awaiting_booking_date"):
