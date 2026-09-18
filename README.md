@@ -1,31 +1,55 @@
 # PureZen
 
-PureZen is a full-stack spa booking and operations application that I originally built as an AWS Academy capstone and later **re-platformed into a serverless AWS architecture**.
+PureZen is a full-stack spa booking and operations application that began as an **AWS Academy capstone** and was later re-platformed twice: first to **Vercel + Hetzner**, and then back to AWS as a **serverless architecture**.
 
-The interesting part of this repository is the modernization work: the application moved away from a server-hosted FastAPI backend, Vercel-style frontend routing, and local Ollama assumptions into a cloud-native deployment built around **AWS Lambda, API Gateway, DynamoDB, S3, CloudFront, Docker, and AWS CDK v2 in TypeScript**.
+The project is useful as an infrastructure-modernization case study because the same application moved through three materially different hosting models: traditional AWS infrastructure, externally managed hosting, and finally AWS-managed serverless services.
 
-> **Portfolio note:** this repository is primarily an engineering case study. The code and commit history are the evidence for the architecture and migration described below; a live deployment is not required to review the work.
+> **Portfolio note:** the current repository primarily reflects the later application and serverless-AWS generations. The original AWS Academy environment included EC2 instances, load balancing, VPC networking, routing tables, IAM, and related infrastructure, but not all of that original environment is preserved as current IaC in this repository.
 
-## Modernization story
+## Infrastructure evolution
 
-The repository history captures the transition rather than only the finished state:
+### Generation 1 — AWS Academy capstone
 
-1. **Original application / AWS Academy roots**
-   - The project began as an AWS Academy capstone and retained several local-model and server-hosting assumptions as it evolved.
+PureZen was originally built and hosted inside the constrained AWS Academy environment using a more traditional infrastructure model:
 
-2. **Server-hosted application**
-   - Before the serverless rebuild, the FastAPI backend was deployed on a persistent server and the frontend used Vercel-style API routing.
-   - The application also carried a local Ollama dependency that was unsuitable for the target serverless runtime.
+- **EC2** for application compute
+- **Load balancing**
+- **VPC networking**
+- **Routing tables**
+- **IAM**
+- other AWS resources available within the Academy environment
 
-3. **Lambda-ready application**
-   - Commit [`5a29d28`](https://github.com/jetty-setter/purezen/commit/5a29d288ff1fbfb5694d244c93bc34118818c38a) added the Mangum adapter, converted the backend to an AWS Lambda container image, and removed the local Ollama runtime dependency from the deployment path.
+This version provided the first hands-on infrastructure implementation, but the Academy environment imposed resource and lifecycle limitations that made it a poor long-term home for the application.
 
-4. **Infrastructure as Code**
-   - Commit [`5f759d2`](https://github.com/jetty-setter/purezen/commit/5f759d2c52cc748fd920672b30d4959ca5300f8a) introduced a TypeScript AWS CDK v2 stack for the Lambda API, API Gateway, DynamoDB permissions, and deployment configuration.
+### Generation 2 — Vercel + Hetzner
 
-5. **Static frontend modernization**
-   - Commit [`db5fbb6`](https://github.com/jetty-setter/purezen/commit/db5fbb64053e81cba66202c7d48b5a5eabcd6cdb) moved the frontend to private S3 + CloudFront and removed the old backend origin from CORS.
-   - Commit [`64b0d3b`](https://github.com/jetty-setter/purezen/commit/64b0d3b9f084fb5cdd5fdebd8f920c2c4c3d4349) removed obsolete Vercel/Hetzner deployment artifacts after the Lambda migration.
+The application was then moved out of the Academy environment:
+
+- the frontend used **Vercel-style hosting and routing**
+- the FastAPI backend ran on a persistent **Hetzner** server
+- the application still carried assumptions associated with always-on compute and a locally hosted Ollama runtime
+
+The repository history preserves this generation through the later cleanup and migration commits that remove the obsolete Vercel/Hetzner paths.
+
+### Generation 3 — AWS serverless re-platform
+
+The application was ultimately brought back to AWS and redesigned around managed/serverless services:
+
+- **AWS Lambda** using a container image for the FastAPI backend
+- **API Gateway** in front of the API
+- **DynamoDB** for application data
+- private **S3** for static frontend hosting
+- **CloudFront** for public delivery and TLS
+- **AWS CDK v2 in TypeScript** for infrastructure definition
+- managed Anthropic inference instead of a local Ollama runtime dependency
+
+Commit [`5a29d28`](https://github.com/jetty-setter/purezen/commit/5a29d288ff1fbfb5694d244c93bc34118818c38a) added the Mangum adapter, converted the backend to an AWS Lambda container image, and removed the local Ollama dependency from the deployment path.
+
+Commit [`5f759d2`](https://github.com/jetty-setter/purezen/commit/5f759d2c52cc748fd920672b30d4959ca5300f8a) introduced the TypeScript AWS CDK v2 stack for Lambda, API Gateway, DynamoDB permissions, and deployment configuration.
+
+Commit [`db5fbb6`](https://github.com/jetty-setter/purezen/commit/db5fbb64053e81cba66202c7d48b5a5eabcd6cdb) moved the frontend to private S3 + CloudFront and removed the old backend origin from CORS.
+
+Commit [`64b0d3b`](https://github.com/jetty-setter/purezen/commit/64b0d3b9f084fb5cdd5fdebd8f920c2c4c3d4349) removed obsolete Vercel/Hetzner deployment artifacts after the Lambda migration.
 
 ## Current architecture in the repository
 
@@ -60,7 +84,7 @@ flowchart LR
 
 ## Engineering evidence
 
-The fastest way to inspect the implementation:
+The fastest way to inspect the current implementation:
 
 - [`cdk/lib/cdk-stack.ts`](cdk/lib/cdk-stack.ts) — TypeScript CDK stack defining Lambda, API Gateway, DynamoDB integration, S3, CloudFront, IAM, and deployment resources.
 - [`Dockerfile`](Dockerfile) — packages the FastAPI backend as an AWS Lambda container image.
@@ -69,14 +93,14 @@ The fastest way to inspect the implementation:
 - [`frontend/config.js`](frontend/config.js) — frontend API configuration targeting API Gateway.
 - [`dynamodb-schema/`](dynamodb-schema/) — application data model and DynamoDB table definitions.
 
-## Why this architecture
+## Why the final architecture changed
 
-The rebuild was intended to reduce infrastructure ownership and make the application easier to deploy and operate:
+The final rebuild reduced persistent-infrastructure ownership and made the application easier to reproduce and operate:
 
-- **Lambda instead of a persistent application server** removes the need to maintain always-on backend compute.
+- **Lambda instead of persistent backend compute** removes the need to maintain an always-on application server.
 - **API Gateway + Mangum** allowed the existing FastAPI application to move to serverless infrastructure without a full application rewrite.
 - **Container-image Lambda** preserved control over Python dependencies while still using a managed runtime model.
-- **S3 + CloudFront** replaced application-server/Vercel coupling for static frontend delivery.
+- **S3 + CloudFront** replaced the prior Vercel/static-hosting path with AWS-managed delivery.
 - **CDK** makes the AWS architecture reviewable and reproducible in code.
 - **Managed LLM inference** removed the runtime dependency on a locally hosted Ollama model.
 
