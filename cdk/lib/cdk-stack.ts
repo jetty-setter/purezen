@@ -152,7 +152,7 @@ export class PureZenStack extends cdk.Stack {
 
     new s3deploy.BucketDeployment(this, 'FrontendDeployment', {
       sources: [s3deploy.Source.asset(path.join(__dirname, '../../frontend'), {
-        exclude: ['.DS_Store', 'patch.py', 'api/**'],
+        exclude: ['.DS_Store'],
       })],
       destinationBucket: siteBucket,
       distribution,
