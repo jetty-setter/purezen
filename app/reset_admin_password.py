@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Emergency admin password reset — run directly on the backend EC2.
+Emergency admin password reset — run from an authenticated admin environment with AWS credentials that can update the PureZen DynamoDB admin table.
 
 Usage:
   python3 reset_admin_password.py <email> <new_password>
