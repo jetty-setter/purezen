@@ -10,3 +10,6 @@ venv/
 *.bak
 node_modules/
 cdk/cdk.out/
+
+# Local Vercel metadata from the retired hosting setup
+.vercel/
