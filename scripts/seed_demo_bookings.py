@@ -460,7 +460,8 @@ def main() -> int:
         print(f"Reset complete. Deleted {deleted} demo rows.")
         return 0
 
-    today = date.today()
+    # Match the admin API, which currently classifies appointments by UTC date.
+    today = datetime.utcnow().date()
     start_date = today - timedelta(days=args.past_days)
     end_date = today + timedelta(days=args.future_days)
 
