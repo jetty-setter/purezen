@@ -111,3 +111,30 @@ The final rebuild reduced persistent-infrastructure ownership and made the appli
 **Backend:** Python · FastAPI · Mangum · Docker  
 **Frontend:** HTML · CSS · JavaScript  
 **AI:** Anthropic Claude  
+
+
+## Portfolio demo data
+
+The public admin console is read-only, but it still needs current appointment data to make the schedule, analytics, guest history, and AI operations assistant useful in a portfolio review.
+
+`scripts/seed_demo_bookings.py` creates a rolling synthetic dataset directly in `purezen_availability` without changing real availability or real bookings. By default it creates 30 days of recent history plus 180 days of future appointments using the existing staff/time schedule as a template.
+
+Preview first:
+
+```bash
+python scripts/seed_demo_bookings.py
+```
+
+If the preview looks right, write the dataset:
+
+```bash
+python scripts/seed_demo_bookings.py --apply
+```
+
+Remove only the synthetic portfolio rows:
+
+```bash
+python scripts/seed_demo_bookings.py --reset
+```
+
+Every generated appointment is tagged with `demo_seed=true`, uses fictional `example.com` guest data and reserved 555 phone numbers, and can be regenerated later so the demo remains current.
