@@ -9,7 +9,7 @@ bookings.
 
 Default window:
   * 30 days of history for current analytics and guest history
-  * 180 days of future appointments for a long-lived portfolio demo
+  * future appointments through March 31, 2027 for the active job-search window
 
 Safety:
   * dry-run is the default
@@ -37,7 +37,8 @@ from boto3.dynamodb.conditions import Attr
 
 DEFAULT_TABLE = os.getenv("AVAILABILITY_TABLE", "purezen_availability")
 DEFAULT_REGION = os.getenv("AWS_REGION", "us-east-1")
-SEED_VERSION = "portfolio-rolling-v1"
+SEED_VERSION = "portfolio-rolling-v2"
+DEFAULT_THROUGH_DATE = "2027-03-31"
 
 COPY_FIELDS = (
     "staff_id",
@@ -113,10 +114,15 @@ def parse_args() -> argparse.Namespace:
         help="Days of history to create (default: 30)",
     )
     parser.add_argument(
+        "--through",
+        default=DEFAULT_THROUGH_DATE,
+        help=f"Seed future appointments through this date (default: {DEFAULT_THROUGH_DATE})",
+    )
+    parser.add_argument(
         "--future-days",
         type=int,
-        default=180,
-        help="Future days to create (default: 180)",
+        default=None,
+        help="Optional rolling-day override. When set, overrides --through.",
     )
     parser.add_argument(
         "--seed",
@@ -444,7 +450,7 @@ def main() -> int:
 
     if args.past_days < 0:
         raise SystemExit("--past-days must be 0 or greater")
-    if args.future_days < 1:
+    if args.future_days is not None and args.future_days < 1:
         raise SystemExit("--future-days must be at least 1")
 
     session = boto3.Session(region_name=args.region)
@@ -463,7 +469,22 @@ def main() -> int:
     # Match the admin API, which currently classifies appointments by UTC date.
     today = datetime.utcnow().date()
     start_date = today - timedelta(days=args.past_days)
-    end_date = today + timedelta(days=args.future_days)
+
+    if args.future_days is not None:
+        end_date = today + timedelta(days=args.future_days)
+        window_detail = f"{args.past_days} days history + {args.future_days} days future"
+    else:
+        end_date = parse_iso_date(args.through)
+        if end_date is None:
+            raise SystemExit("--through must be a valid YYYY-MM-DD date")
+        if end_date < today:
+            raise SystemExit(
+                f"--through ({end_date.isoformat()}) is before today ({today.isoformat()})"
+            )
+        window_detail = (
+            f"{args.past_days} days history + future appointments through "
+            f"{end_date.isoformat()}"
+        )
 
     all_rows = scan_all(table)
     real_rows = [row for row in all_rows if not row.get("demo_seed")]
@@ -487,7 +508,7 @@ def main() -> int:
 
     print(
         f"Window: {start_date.isoformat()} through {end_date.isoformat()} "
-        f"({args.past_days} days history + {args.future_days} days future)"
+        f"({window_detail})"
     )
     print(f"Existing non-demo rows preserved: {len(real_rows)}")
     print(f"Existing demo rows to refresh: {len(existing_demo_rows)}")
