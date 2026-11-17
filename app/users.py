@@ -7,12 +7,11 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 import bcrypt
-import boto3
 from boto3.dynamodb.conditions import Attr, Key
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, EmailStr
 
-from app.config import AWS_REGION
+from app.dynamodb_client import get_dynamodb_resource
 
 log = logging.getLogger(__name__)
 
@@ -23,8 +22,9 @@ TOKEN_TTL_SECS  = 86400  # 24 hours
 
 router = APIRouter()
 
-dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
-table    = dynamodb.Table(USERS_TABLE)
+
+def _users_table():
+    return get_dynamodb_resource().Table(USERS_TABLE)
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ def _get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
     """
     email = email.lower().strip()
     try:
-        response = table.query(
+        response = _users_table().query(
             IndexName=EMAIL_GSI_NAME,
             KeyConditionExpression=Key("email").eq(email),
             Limit=1,
@@ -71,7 +71,7 @@ def _get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
         return items[0] if items else None
     except Exception as exc:
         log.warning("GSI query failed, falling back to scan: %s", exc)
-        response = table.scan(FilterExpression=Attr("email").eq(email))
+        response = _users_table().scan(FilterExpression=Attr("email").eq(email))
         items = response.get("Items", [])
         return items[0] if items else None
 
@@ -81,7 +81,7 @@ def _get_user_by_token(token: str) -> Optional[Dict[str, Any]]:
     if not token:
         return None
     try:
-        response = table.query(
+        response = _users_table().query(
             IndexName="token-index",
             KeyConditionExpression=Key("token").eq(token),
             Limit=1,
@@ -90,7 +90,7 @@ def _get_user_by_token(token: str) -> Optional[Dict[str, Any]]:
         return items[0] if items else None
     except Exception as exc:
         log.warning("token-index GSI query failed, falling back to scan: %s", exc)
-        response = table.scan(FilterExpression=Attr("token").eq(token))
+        response = _users_table().scan(FilterExpression=Attr("token").eq(token))
         items = response.get("Items", [])
         return items[0] if items else None
 
@@ -133,7 +133,7 @@ def register(request: RegisterRequest) -> AuthResponse:
         "created_at":    datetime.utcnow().isoformat(),
     }
 
-    table.put_item(Item=user)
+    _users_table().put_item(Item=user)
     log.info("Registered new user: %s", email)
 
     return AuthResponse(
@@ -162,7 +162,7 @@ def login(request: LoginRequest) -> AuthResponse:
 
     token   = uuid.uuid4().hex
     expires = int(time.time()) + TOKEN_TTL_SECS
-    table.update_item(
+    _users_table().update_item(
         Key={"user_id": user["user_id"]},
         UpdateExpression="SET #t = :t, token_expires_at = :e",
         ExpressionAttributeNames={"#t": "token"},
@@ -184,7 +184,7 @@ def logout(token: str) -> Dict[str, Any]:
     """Invalidate a customer session token in DynamoDB."""
     user = _get_user_by_token(token)
     if user:
-        table.update_item(
+        _users_table().update_item(
             Key={"user_id": user["user_id"]},
             UpdateExpression="SET #t = :t, token_expires_at = :e",
             ExpressionAttributeNames={"#t": "token"},
