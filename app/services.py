@@ -5,16 +5,12 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter
-import boto3
 
-from app.config import AWS_REGION, SERVICES_TABLE
+from app.dynamodb_client import get_services_table
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
-
-dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
-table = dynamodb.Table(SERVICES_TABLE)
 
 
 def _convert_decimal(value: Any) -> Any:
@@ -28,6 +24,7 @@ def _convert_decimal(value: Any) -> Any:
 
 
 def list_services(active_only: bool = True) -> List[Dict[str, Any]]:
+    table = get_services_table()
     # Paginate fully — services table is small now but won't always be
     items: List[Dict[str, Any]] = []
     response = table.scan()
