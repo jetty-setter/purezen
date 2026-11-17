@@ -2,6 +2,13 @@
 
 PureZen is a spa booking app with a guest booking flow and an admin console for schedules, guest history, and analytics. It started as an AWS Academy capstone.
 
+## Book an appointment
+
+On the deployed spa homepage, choose **Ask the concierge**. Try “Book a Swedish massage for tomorrow.” The concierge checks availability, offers times, and asks which one to reserve. Returning guests can use [My Account](frontend/account.html) to see their appointments.
+
+- [Spa homepage source](frontend/index.html) and [concierge interface](frontend/script.js)
+- [Conversation and booking flow](app/orchestrator.py)
+
 ## Deployment history
 
 The capstone ran on EC2 with a load balancer in an AWS Academy VPC. After the capstone, the frontend moved to Vercel and the FastAPI backend ran on Hetzner with a local Ollama runtime. The repository now contains the serverless AWS setup, and some of the original Academy infrastructure survives only in the project history.
