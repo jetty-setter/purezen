@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, Header, HTTPException
@@ -7,31 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 from pydantic import BaseModel
 
+from app.admin_routes import router as admin_router
+from app.booking_history import router as history_router
 from app.orchestrator import handle_chat
-
-try:
-    from app.services import router as services_router
-except Exception:
-    services_router = None
-
-try:
-    from app.users import router as users_router
-except Exception:
-    users_router = None
-
-try:
-    from app.booking_history import router as history_router
-except Exception:
-    history_router = None
-
-try:
-    from app.admin_routes import router as admin_router
-except Exception:
-    admin_router = None
+from app.services import router as services_router
+from app.users import router as users_router
 
 app = FastAPI(title="PureZen API")
-
-import os
 
 # The deployed frontend origin (CloudFront URL) is injected by CDK at deploy
 # time so CORS has a single source of truth without hardcoding it here.
@@ -124,17 +107,13 @@ def chat(request: ChatRequest) -> ChatResponse:
     return ChatResponse(session_id=resolved_session_id, response=response_text)
 
 
-if services_router:
-    app.include_router(services_router)
+app.include_router(services_router)
 
-if users_router:
-    app.include_router(users_router)
+app.include_router(users_router)
 
-if history_router:
-    app.include_router(history_router)
+app.include_router(history_router)
 
-if admin_router:
-    app.include_router(admin_router)
+app.include_router(admin_router)
 
 
 # Lambda handler (API Gateway proxy via Mangum). Ignored when run under uvicorn.
