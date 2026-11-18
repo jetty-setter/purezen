@@ -4,22 +4,19 @@ PureZen is a spa booking app with a guest booking flow and an admin console for 
 
 ## Book an appointment
 
-On the deployed spa homepage, choose **Ask the concierge**. Try “Book a Swedish massage for tomorrow.” The concierge checks availability, offers times, and asks which one to reserve. Returning guests can use [My Account](frontend/account.html) to see their appointments.
+On the [live spa homepage](https://purezen.stephsimmons.dev/#concierge), choose **Ask the concierge**. Try “Book a Swedish massage for tomorrow.” The concierge checks availability, offers times, and asks which one to reserve. Returning guests can use [My Account](frontend/account.html) to see their appointments.
 
 - [Spa homepage source](frontend/index.html) and [concierge interface](frontend/script.js)
 - [Conversation and booking flow](app/orchestrator.py)
 
 ## Deployment history
 
-The capstone ran on EC2 with a load balancer in an AWS Academy VPC. After the capstone, the frontend moved to Vercel and the FastAPI backend ran on Hetzner with a local Ollama runtime. The repository now contains the serverless AWS setup, and some of the original Academy infrastructure survives only in the project history.
+The capstone ran on EC2. After the course, the frontend moved to Vercel and the backend ran on Hetzner. The current AWS setup runs the same FastAPI app on Lambda through Mangum.
 
-Commit [`5a29d28`](https://github.com/jetty-setter/purezen/commit/5a29d288ff1fbfb5694d244c93bc34118818c38a) added the Mangum adapter, converted the backend to an AWS Lambda container image, and removed the local Ollama dependency from the deployment path.
-
-Commit [`5f759d2`](https://github.com/jetty-setter/purezen/commit/5f759d2c52cc748fd920672b30d4959ca5300f8a) introduced the TypeScript AWS CDK v2 stack for Lambda, API Gateway, DynamoDB permissions, and deployment configuration.
-
-Commit [`db5fbb6`](https://github.com/jetty-setter/purezen/commit/db5fbb64053e81cba66202c7d48b5a5eabcd6cdb) moved the frontend to private S3 + CloudFront and removed the old backend origin from CORS.
-
-Commit [`64b0d3b`](https://github.com/jetty-setter/purezen/commit/64b0d3b9f084fb5cdd5fdebd8f920c2c4c3d4349) removed obsolete Vercel/Hetzner deployment artifacts after the Lambda migration.
+- [Move the API to Lambda](https://github.com/jetty-setter/purezen/commit/5a29d288ff1fbfb5694d244c93bc34118818c38a)
+- [Define the AWS stack in CDK](https://github.com/jetty-setter/purezen/commit/5f759d2c52cc748fd920672b30d4959ca5300f8a)
+- [Move the frontend to S3 and CloudFront](https://github.com/jetty-setter/purezen/commit/db5fbb64053e81cba66202c7d48b5a5eabcd6cdb)
+- [Remove the old hosting configuration](https://github.com/jetty-setter/purezen/commit/64b0d3b9f084fb5cdd5fdebd8f920c2c4c3d4349)
 
 ## Current architecture
 
